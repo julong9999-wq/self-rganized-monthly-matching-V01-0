@@ -2,17 +2,19 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { EtfData } from '../types';
 import { generateSmartPlan } from '../services/geminiService';
-import { BrainCircuit, Mic, MicOff, Play, RefreshCcw, Coins } from 'lucide-react';
+import { BrainCircuit, Mic, MicOff, Play, RefreshCcw, Coins, Key } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 interface Props {
   etfs: EtfData[];
+  hasKey: boolean;
+  onOpenKeySettings: () => void;
 }
 
 const DEFAULT_PROMPT = "股債配置 80 : 20 , 股票產業分散 ,季配型各季 * 1 , 月配 * 2 , 均衡股息收入";
 
-const PlanningView: React.FC<Props> = ({ etfs }) => {
+const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings }) => {
   // Input State
   const [budget, setBudget] = useState<number>(500); // Unit: 萬
   const [prompt, setPrompt] = useState<string>(DEFAULT_PROMPT);
@@ -97,9 +99,18 @@ const PlanningView: React.FC<Props> = ({ etfs }) => {
       
       {/* Input Card */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6 shrink-0">
-        <div className="flex items-center gap-2 mb-4 border-b border-slate-100 pb-2">
-          <BrainCircuit className="w-6 h-6 text-blue-600" />
-          <h2 className="text-xl font-bold text-slate-800">AI 智慧規劃</h2>
+        <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
+          <div className="flex items-center gap-2">
+            <BrainCircuit className="w-6 h-6 text-blue-600" />
+            <h2 className="text-xl font-bold text-slate-800">AI 智慧規劃</h2>
+          </div>
+          <button 
+             onClick={onOpenKeySettings}
+             className={`p-2 rounded-full transition-all ${!hasKey ? 'bg-yellow-100 text-yellow-600 animate-pulse ring-2 ring-yellow-300' : 'text-slate-400 hover:bg-slate-100 hover:text-blue-600'}`}
+             title={!hasKey ? "請設定 API Key" : "設定 API Key"}
+          >
+             <Key className="w-5 h-5" />
+          </button>
         </div>
 
         <div className="space-y-5">
@@ -152,7 +163,7 @@ const PlanningView: React.FC<Props> = ({ etfs }) => {
             </div>
           </div>
 
-          {/* Action Button - Changed from Purple to Blue-600 (distinct from Blue-900 header) */}
+          {/* Action Button */}
           <button
             onClick={handleStartPlanning}
             disabled={isGenerating}
@@ -189,13 +200,15 @@ const PlanningView: React.FC<Props> = ({ etfs }) => {
                     li: ({node, ...props}) => <li className="text-base text-slate-700 leading-relaxed" {...props} />,
                     strong: ({node, ...props}) => <strong className="font-bold text-blue-900" {...props} />,
                     
-                    // 表格樣式
+                    // 表格樣式優化: 手機直向閱讀
                     table: ({node, ...props}) => <div className="overflow-x-auto my-4 border border-slate-200 rounded-lg shadow-sm"><table className="min-w-full divide-y divide-slate-200" {...props} /></div>,
                     thead: ({node, ...props}) => <thead className="bg-blue-50 text-blue-900 font-bold" {...props} />,
                     tbody: ({node, ...props}) => <tbody className="divide-y divide-slate-200 bg-white" {...props} />,
                     tr: ({node, ...props}) => <tr className="hover:bg-slate-50/50 transition-colors" {...props} />,
-                    th: ({node, ...props}) => <th className="px-3 py-3 text-left text-sm font-bold uppercase tracking-wider whitespace-nowrap border-b border-blue-100" {...props} />,
-                    td: ({node, ...props}) => <td className="px-3 py-3 text-base text-slate-700 whitespace-nowrap border-b border-slate-100" {...props} />,
+                    // th: 標題保持不換行，確保寬度足夠
+                    th: ({node, ...props}) => <th className="px-3 py-3 text-left text-sm font-bold uppercase tracking-wider whitespace-nowrap border-b border-blue-100 min-w-[60px]" {...props} />,
+                    // td: 內容允許換行，增加 min-w 防止過度擠壓，align-top 讓長文對齊頂部
+                    td: ({node, ...props}) => <td className="px-3 py-3 text-base text-slate-700 border-b border-slate-100 min-w-[80px] align-top leading-relaxed" {...props} />,
                     
                     // 標題樣式
                     h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-slate-900 mt-6 mb-4" {...props} />,

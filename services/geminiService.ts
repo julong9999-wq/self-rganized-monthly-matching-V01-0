@@ -5,14 +5,33 @@ import { PortfolioItem, EtfData } from "../types";
 // 安全獲取 API Key 的輔助函式
 const getSafeApiKey = (): string => {
   try {
+    // 1. 優先檢查 Local Storage (使用者自行設定的 Key)
+    if (typeof window !== 'undefined' && window.localStorage) {
+        const localKey = localStorage.getItem('gemini_api_key');
+        if (localKey && localKey.trim() !== '') {
+            return localKey.trim();
+        }
+    }
+
+    // 2. 其次檢查環境變數 (開發環境或預設)
     if (typeof process !== 'undefined' && process && process.env) {
       return process.env.API_KEY || '';
     }
   } catch (e) {
-    console.warn("Environment variable access failed gracefully.");
+    console.warn("API Key access failed gracefully.");
   }
   return '';
 };
+
+const MISSING_KEY_MSG = `
+### 🔑 需要設定 API 金鑰
+
+為了啟動 AI 投資顧問，請點擊畫面標題列右側的 **「金鑰圖示 🔑」** 進行設定。
+
+*   **免費使用**：Google 提供充足的免費額度。
+*   **隱私安全**：您的金鑰僅儲存在您的瀏覽器中，不會上傳至其他伺服器。
+*   **設定簡單**：點擊圖示後有完整教學。
+`;
 
 // 更新函式簽章以接收 PortfolioItem[]
 export const analyzeSheets = async (
@@ -21,6 +40,12 @@ export const analyzeSheets = async (
 ): Promise<void> => {
   const modelId = 'gemini-3-flash-preview'; 
   const apiKey = getSafeApiKey();
+
+  if (!apiKey) {
+      onStream(MISSING_KEY_MSG);
+      return;
+  }
+
   const ai = new GoogleGenAI({ apiKey });
 
   // 將 Portfolio 物件轉換為簡化的 JSON 字串供 AI 閱讀
@@ -69,9 +94,13 @@ export const analyzeSheets = async (
         onStream(chunk.text);
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Analysis Error:", error);
-    throw error;
+    if (error.toString().includes("400") || error.toString().includes("403") || error.toString().includes("API key")) {
+        onStream(MISSING_KEY_MSG);
+    } else {
+        onStream(`### ⚠️ AI 連線發生錯誤 \n\n 請稍後再試，或檢查您的網路連線。\n\n錯誤訊息: ${error.message || 'Unknown error'}`);
+    }
   }
 };
 
@@ -84,6 +113,12 @@ export const generateSmartPlan = async (
 ): Promise<void> => {
   const modelId = 'gemini-3-flash-preview';
   const apiKey = getSafeApiKey();
+
+  if (!apiKey) {
+      onStream(MISSING_KEY_MSG);
+      return;
+  }
+
   const ai = new GoogleGenAI({ apiKey });
 
   const totalBudget = budgetWan * 10000;
@@ -145,8 +180,12 @@ export const generateSmartPlan = async (
         onStream(chunk.text);
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Planning Error:", error);
-    throw error;
+    if (error.toString().includes("400") || error.toString().includes("403") || error.toString().includes("API key")) {
+        onStream(MISSING_KEY_MSG);
+    } else {
+        onStream(`### ⚠️ AI 連線發生錯誤 \n\n 請稍後再試，或檢查您的網路連線。\n\n錯誤訊息: ${error.message || 'Unknown error'}`);
+    }
   }
 };

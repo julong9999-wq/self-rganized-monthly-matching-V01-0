@@ -8,7 +8,7 @@ import PortfolioView from './components/PortfolioView';
 import SheetConfigView from './components/SheetConfigView';
 import AnnouncementView from './components/AnnouncementView';
 import PlanningView from './components/PlanningView'; // Import the new view
-import { LayoutDashboard, PieChart, BrainCircuit, Bot, Megaphone, CheckCircle, AlertTriangle, Loader2, BarChart3, Settings } from 'lucide-react';
+import { LayoutDashboard, PieChart, BrainCircuit, Bot, Megaphone, CheckCircle, AlertTriangle, Loader2, BarChart3, Settings, Key, CircleHelp, X, ExternalLink, ShieldCheck, Tag, Trash2, LogIn } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -18,6 +18,7 @@ const DEFAULT_URL_2 = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQdHAXZ0A
 
 // Base Date for calculations (2025/01/02)
 const BASE_DATE_STR = "2025/01/02";
+const LOCAL_STORAGE_KEY_API = 'gemini_api_key';
 
 type Tab = 'performance' | 'portfolio' | 'analysis' | 'planning' | 'diagnosis' | 'announcement';
 
@@ -32,6 +33,12 @@ const App: React.FC = () => {
   const [isConfigured, setIsConfigured] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('performance');
   
+  // Key State
+  const [apiKey, setApiKey] = useState<string>('');
+  const [showKeyModal, setShowKeyModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [tempKeyInput, setTempKeyInput] = useState('');
+
   // Data State
   const [etfs, setEtfs] = useState<EtfData[]>([]);
   
@@ -56,10 +63,44 @@ const App: React.FC = () => {
   // Notification State
   const [toast, setToast] = useState<{visible: boolean, message: string, type: 'success' | 'warning'}>({ visible: false, message: '', type: 'success' });
 
+  // Init Key
+  useEffect(() => {
+    const storedKey = localStorage.getItem(LOCAL_STORAGE_KEY_API);
+    if (storedKey) setApiKey(storedKey);
+  }, []);
+
   // 新增: 當 portfolio 變動時，自動存入 localStorage
   useEffect(() => {
     localStorage.setItem(CACHE_KEY_PORTFOLIO, JSON.stringify(portfolio));
   }, [portfolio]);
+
+  // Key Handlers
+  const handleSaveKey = () => {
+      if (tempKeyInput.trim()) {
+          const key = tempKeyInput.trim();
+          localStorage.setItem(LOCAL_STORAGE_KEY_API, key);
+          setApiKey(key);
+          setShowKeyModal(false);
+          showToast('API Key 設定成功', 'success');
+      } else {
+          showToast('請輸入有效的 API Key', 'warning');
+      }
+  };
+
+  const handleDeleteKey = () => {
+      if(window.confirm("確定要刪除儲存的 API Key 嗎？\n刪除後將無法使用 AI 功能。")) {
+          localStorage.removeItem(LOCAL_STORAGE_KEY_API);
+          setApiKey('');
+          setTempKeyInput('');
+          setShowKeyModal(false);
+          showToast('API Key 已刪除', 'warning');
+      }
+  };
+
+  const openKeyModal = () => {
+      setTempKeyInput(apiKey);
+      setShowKeyModal(true);
+  };
 
   // Helper to prevent infinite loading
   const fetchWithTimeout = async (url: string, timeout = 10000) => {
@@ -423,6 +464,11 @@ const App: React.FC = () => {
   };
 
   const handleAIDiagnosis = async () => {
+    if (!apiKey) {
+        setDiagnosis("### 🔑 需要設定 API 金鑰\n\n請點擊上方鑰匙按鈕進行設定，即可開始使用 AI 診斷功能。");
+        return;
+    }
+
     setIsDiagnosing(true);
     setDiagnosis("");
     try {
@@ -512,7 +558,11 @@ const App: React.FC = () => {
           case 'planning':
             return (
                 <div className="h-full overflow-hidden">
-                    <PlanningView etfs={etfs} />
+                    <PlanningView 
+                        etfs={etfs} 
+                        hasKey={!!apiKey}
+                        onOpenKeySettings={openKeyModal}
+                    />
                 </div>
             );
 
@@ -522,16 +572,26 @@ const App: React.FC = () => {
                     {/* 使用與 PlanningView 一致的卡片樣式 */}
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 min-h-[400px]">
                         <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
-                            <h3 className="text-xl font-bold flex items-center gap-2 text-slate-800">
-                                <Bot className="w-6 h-6 text-blue-600" /> AI 智能診斷
-                            </h3>
-                            <button 
-                                onClick={handleAIDiagnosis}
-                                disabled={isDiagnosing}
-                                className="text-base bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-all"
-                            >
-                                {isDiagnosing ? '診斷中...' : '開始診斷'}
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <Bot className="w-6 h-6 text-blue-600" />
+                                <h3 className="text-xl font-bold text-slate-800">AI 智能診斷</h3>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={openKeyModal}
+                                    className={`p-2 rounded-full transition-all ${!apiKey ? 'bg-yellow-100 text-yellow-600 animate-pulse ring-2 ring-yellow-300' : 'text-slate-400 hover:bg-slate-100 hover:text-blue-600'}`}
+                                    title={!apiKey ? "請設定 API Key" : "設定 API Key"}
+                                >
+                                    <Key className="w-5 h-5" />
+                                </button>
+                                <button 
+                                    onClick={handleAIDiagnosis}
+                                    disabled={isDiagnosing}
+                                    className="text-base bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-all"
+                                >
+                                    {isDiagnosing ? '診斷中...' : '開始診斷'}
+                                </button>
+                            </div>
                         </div>
                         <div className="prose prose-slate max-w-none">
                             {diagnosis ? (
@@ -552,8 +612,10 @@ const App: React.FC = () => {
                                         thead: ({node, ...props}) => <thead className="bg-blue-50 text-blue-900 font-bold" {...props} />,
                                         tbody: ({node, ...props}) => <tbody className="divide-y divide-slate-200 bg-white" {...props} />,
                                         tr: ({node, ...props}) => <tr className="hover:bg-slate-50/50 transition-colors" {...props} />,
-                                        th: ({node, ...props}) => <th className="px-3 py-3 text-left text-sm font-bold uppercase tracking-wider whitespace-nowrap border-b border-blue-100" {...props} />,
-                                        td: ({node, ...props}) => <td className="px-3 py-3 text-base text-slate-700 whitespace-nowrap border-b border-slate-100" {...props} />,
+                                        // th: 標題保持不換行，確保寬度足夠
+                                        th: ({node, ...props}) => <th className="px-3 py-3 text-left text-sm font-bold uppercase tracking-wider whitespace-nowrap border-b border-blue-100 min-w-[60px]" {...props} />,
+                                        // td: 內容允許換行 (移除 whitespace-nowrap)，增加 min-w 防止過度擠壓，align-top 讓長文對齊頂部
+                                        td: ({node, ...props}) => <td className="px-3 py-3 text-base text-slate-700 border-b border-slate-100 min-w-[120px] align-top leading-relaxed" {...props} />,
                                         
                                         // 標題樣式
                                         h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-slate-900 mt-6 mb-4" {...props} />,
@@ -600,7 +662,13 @@ const App: React.FC = () => {
             <h1 className="text-xl font-bold tracking-wide pointer-events-auto shadow-sm">{getHeaderTitle()}</h1>
         </div>
         <div className="flex items-center gap-3 z-10">
-            <span className="text-[13px] font-bold text-yellow-300 tracking-wider border border-yellow-400/30 px-2 py-1 rounded bg-yellow-400/10">測試版</span>
+            <button 
+               onClick={() => setShowHelpModal(true)}
+               className="p-2 rounded-full hover:bg-blue-800 transition-all text-blue-100 hover:text-white"
+               title="說明文件"
+            >
+                <CircleHelp className="w-6 h-6" />
+            </button>
             {isConfigured && (
                 <button 
                     onClick={handleReset}
@@ -617,6 +685,118 @@ const App: React.FC = () => {
       <main className="flex-grow overflow-hidden bg-slate-50 relative">
         {renderContent()}
       </main>
+
+      {/* --- Help Modal --- */}
+      {showHelpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+            <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+                <div className="bg-blue-50 px-6 py-4 border-b border-blue-100 flex justify-between items-center">
+                    <h3 className="text-lg font-bold text-blue-900 flex items-center gap-2">
+                        <CircleHelp className="w-5 h-5" /> 關於 AI 助理
+                    </h3>
+                    <button onClick={() => setShowHelpModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-6 h-6" /></button>
+                </div>
+                <div className="p-6 overflow-y-auto space-y-6">
+                    {/* Why Key? */}
+                    <div className="space-y-2">
+                        <h4 className="font-bold text-slate-800 flex items-center gap-2">
+                            <Key className="w-5 h-5 text-amber-500" /> 為什麼需要 API 金鑰？
+                        </h4>
+                        <p className="text-sm text-slate-600 leading-relaxed">
+                            本 App 使用 Google Gemini 先進的語言模型來提供智慧規劃與診斷服務。就像使用 Google Maps 需要帳號一樣，AI 服務也需要一把「鑰匙」來通行。
+                        </p>
+                    </div>
+
+                    {/* Cost & Security */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <h5 className="font-bold text-slate-800 text-sm mb-1 flex items-center gap-1"><Tag className="w-4 h-4 text-emerald-500" /> 費用說明</h5>
+                            <p className="text-xs text-slate-500 leading-snug">Google 提供非常大方的<strong>免費額度</strong>，個人使用通常完全免費。</p>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <h5 className="font-bold text-slate-800 text-sm mb-1 flex items-center gap-1"><ShieldCheck className="w-4 h-4 text-blue-500" /> 安全性</h5>
+                            <p className="text-xs text-slate-500 leading-snug">金鑰僅儲存在您的<strong>瀏覽器本地</strong> (Local Storage)，不會上傳至我們的主機。</p>
+                        </div>
+                    </div>
+
+                    {/* Steps */}
+                    <div className="space-y-3">
+                        <h4 className="font-bold text-slate-800 flex items-center gap-2">
+                            <ExternalLink className="w-5 h-5 text-purple-500" /> 操作步驟
+                        </h4>
+                        <ol className="text-sm text-slate-600 space-y-3 list-decimal pl-4">
+                            <li>點擊本 App 右上角的 <strong>金鑰設定</strong> 按鈕。</li>
+                            <li>點擊視窗中的連結前往 <strong>Google AI Studio</strong>。</li>
+                            <li>登入 Google 帳號後，點擊 <strong>Get API key</strong>。</li>
+                            <li>複製金鑰 (以 AIza 開頭的字串) 並貼回本 App 即可。</li>
+                        </ol>
+                    </div>
+                </div>
+                <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 text-center">
+                    <button onClick={() => setShowHelpModal(false)} className="w-full bg-blue-900 text-white py-3 rounded-xl font-bold shadow-sm hover:bg-blue-800">
+                        我瞭解了
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* --- API Key Modal --- */}
+      {showKeyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+            <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+                <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <Settings className="w-5 h-5" /> 設定 API 金鑰
+                    </h3>
+                    <button onClick={() => setShowKeyModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-6 h-6" /></button>
+                </div>
+                
+                <div className="p-6 space-y-6">
+                    <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-sm text-blue-800 flex gap-3 items-start">
+                        <LogIn className="w-5 h-5 shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-bold mb-1">還沒有金鑰嗎？</p>
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800 flex items-center gap-1">
+                                前往 Google AI Studio 申請 <ExternalLink className="w-3 h-3" />
+                            </a>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">貼上您的 API Key</label>
+                        <input 
+                            type="password" 
+                            value={tempKeyInput}
+                            onChange={(e) => setTempKeyInput(e.target.value)}
+                            placeholder="AIzaSy..."
+                            className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition-all font-mono text-slate-600"
+                        />
+                         <p className="text-xs text-slate-400 mt-2 text-right">
+                            Key 將被加密儲存在此裝置
+                        </p>
+                    </div>
+
+                    <div className="flex gap-3">
+                        {apiKey && (
+                            <button 
+                                onClick={handleDeleteKey}
+                                className="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold hover:bg-red-100 transition-colors flex items-center justify-center gap-2 border border-red-100"
+                            >
+                                <Trash2 className="w-4 h-4" /> 刪除
+                            </button>
+                        )}
+                        <button 
+                            onClick={handleSaveKey}
+                            className={`flex-[2] bg-blue-900 text-white py-3 rounded-xl font-bold shadow-md hover:bg-blue-800 transition-all active:scale-[0.98]`}
+                        >
+                            儲存設定
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
 
       {toast.visible && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none">
