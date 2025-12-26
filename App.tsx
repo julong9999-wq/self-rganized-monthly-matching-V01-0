@@ -573,8 +573,9 @@ const App: React.FC = () => {
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 min-h-[400px]">
                         <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
                             <div className="flex items-center gap-2">
-                                <Bot className="w-6 h-6 text-blue-600" />
-                                <h3 className="text-xl font-bold text-slate-800">AI 智能診斷</h3>
+                                <Bot className="w-8 h-8 text-blue-600" />
+                                {/* 修改: 字體加大至 text-3xl */}
+                                <h3 className="text-3xl font-bold text-slate-800">AI 智能診斷</h3>
                             </div>
                             <div className="flex items-center gap-2">
                                 <button 

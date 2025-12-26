@@ -101,8 +101,9 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings }) => {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6 shrink-0">
         <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
           <div className="flex items-center gap-2">
-            <BrainCircuit className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-bold text-slate-800">AI 智慧規劃</h2>
+            <BrainCircuit className="w-8 h-8 text-blue-600" />
+            {/* 修改: 字體加大至 text-3xl */}
+            <h2 className="text-3xl font-bold text-slate-800">AI 智慧規劃</h2>
           </div>
           <button 
              onClick={onOpenKeySettings}
@@ -197,23 +198,23 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings }) => {
                 components={{
                     // 強制設定文字大小為 16px (text-base)
                     p: ({node, ...props}) => <p className="text-base text-slate-700 leading-relaxed mb-4" {...props} />,
-                    li: ({node, ...props}) => <li className="text-base text-slate-700 leading-relaxed" {...props} />,
+                    
+                    // 清單樣式優化: 改為卡片式細項
+                    ul: ({node, ...props}) => <ul className="space-y-2 mb-6" {...props} />,
+                    li: ({node, ...props}) => <li className="text-base text-slate-700 pl-2 border-l-2 border-blue-200 ml-1" {...props} />,
                     strong: ({node, ...props}) => <strong className="font-bold text-blue-900" {...props} />,
                     
-                    // 表格樣式優化: 手機直向閱讀
-                    table: ({node, ...props}) => <div className="overflow-x-auto my-4 border border-slate-200 rounded-lg shadow-sm"><table className="min-w-full divide-y divide-slate-200" {...props} /></div>,
-                    thead: ({node, ...props}) => <thead className="bg-blue-50 text-blue-900 font-bold" {...props} />,
-                    tbody: ({node, ...props}) => <tbody className="divide-y divide-slate-200 bg-white" {...props} />,
-                    tr: ({node, ...props}) => <tr className="hover:bg-slate-50/50 transition-colors" {...props} />,
-                    // th: 標題保持不換行，確保寬度足夠
-                    th: ({node, ...props}) => <th className="px-3 py-3 text-left text-sm font-bold uppercase tracking-wider whitespace-nowrap border-b border-blue-100 min-w-[60px]" {...props} />,
-                    // td: 內容允許換行，增加 min-w 防止過度擠壓，align-top 讓長文對齊頂部
-                    td: ({node, ...props}) => <td className="px-3 py-3 text-base text-slate-700 border-b border-slate-100 min-w-[80px] align-top leading-relaxed" {...props} />,
-                    
-                    // 標題樣式
+                    // 標題樣式: 針對清單標題 (H3) 做卡片頭部樣式
                     h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-slate-900 mt-6 mb-4" {...props} />,
                     h2: ({node, ...props}) => <h2 className="text-xl font-bold text-slate-800 mt-5 mb-3 border-b pb-1 border-slate-100" {...props} />,
-                    h3: ({node, ...props}) => <h3 className="text-lg font-bold text-slate-800 mt-4 mb-2" {...props} />,
+                    // H3 用於單檔 ETF 的名稱
+                    h3: ({node, ...props}) => <h3 className="text-lg font-bold text-white bg-blue-600 px-4 py-2 rounded-lg mt-6 mb-3 shadow-sm inline-block" {...props} />,
+                    
+                    // 分隔線
+                    hr: ({node, ...props}) => <hr className="my-6 border-slate-200 border-dashed" {...props} />,
+                    
+                    // 引用 (用於總結)
+                    blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-500 bg-blue-50 pl-4 py-2 rounded-r-lg italic text-slate-700 my-4" {...props} />
                 }}
              >
                 {result}
