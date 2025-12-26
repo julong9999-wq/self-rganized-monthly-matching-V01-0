@@ -1,8 +1,6 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export const analyzeSheets = async (
   sheet1Content: string, 
   sheet2Content: string,
@@ -10,6 +8,19 @@ export const analyzeSheets = async (
 ): Promise<void> => {
   const modelId = 'gemini-3-flash-preview'; 
   const today = new Date().toLocaleDateString('zh-TW');
+
+  // 安全獲取 API Key，防止在無 process 的環境 (如瀏覽器) 中崩潰導致白屏
+  let apiKey = '';
+  try {
+    if (typeof process !== 'undefined' && process.env) {
+      apiKey = process.env.API_KEY || '';
+    }
+  } catch (e) {
+    console.warn("Unable to access process.env");
+  }
+
+  // 初始化 AI (移至函式內部)
+  const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
     你現在是一個**高強度的金融數據稽核員**。
