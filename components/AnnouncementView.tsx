@@ -157,40 +157,40 @@ const AnnouncementView: React.FC<Props> = ({ etfs }) => {
                                   
                                   {/* Col 1: 配息日期 */}
                                   <div className="flex flex-col items-center">
-                                      <span className="text-[10px] text-slate-400 mb-1 flex items-center gap-1">
+                                      <span className="text-[12px] font-light text-slate-400 mb-1 flex items-center gap-1">
                                           <Calendar className="w-3 h-3" /> 日期
                                       </span>
-                                      <span className="text-sm font-bold text-slate-800 bg-slate-100 px-2 py-1 rounded">
+                                      <span className="text-[16px] font-bold text-slate-800 bg-slate-100 px-2 py-1 rounded">
                                           {item.date}
                                       </span>
                                   </div>
 
                                   {/* Col 2: 配息金額 */}
                                   <div className="flex flex-col items-center border-l border-slate-100">
-                                      <span className="text-[10px] text-slate-400 mb-1 flex items-center gap-1">
+                                      <span className="text-[12px] font-light text-slate-400 mb-1 flex items-center gap-1">
                                           <DollarSign className="w-3 h-3" /> 金額
                                       </span>
-                                      <span className="text-base font-bold text-slate-900">
+                                      <span className="text-[16px] font-bold text-slate-900">
                                           {item.amount}
                                       </span>
                                   </div>
 
                                   {/* Col 3: 單次殖利率 */}
                                   <div className="flex flex-col items-center border-l border-slate-100">
-                                      <span className="text-[10px] text-slate-400 mb-1 flex items-center gap-1">
+                                      <span className="text-[12px] font-light text-slate-400 mb-1 flex items-center gap-1">
                                           <Percent className="w-3 h-3" /> 殖利率
                                       </span>
-                                      <span className="text-base font-bold text-red-600">
+                                      <span className="text-[16px] font-bold text-red-600">
                                           {item.singleYield}%
                                       </span>
                                   </div>
 
                                   {/* Col 4: 狀態 */}
                                   <div className="flex flex-col items-center border-l border-slate-100">
-                                      <span className="text-[10px] text-slate-400 mb-1 flex items-center gap-1">
+                                      <span className="text-[12px] font-light text-slate-400 mb-1 flex items-center gap-1">
                                           <Info className="w-3 h-3" /> 狀態
                                       </span>
-                                      <span className="text-xs font-bold text-white bg-red-400 px-2 py-1 rounded shadow-sm">
+                                      <span className="text-[16px] font-bold text-white bg-red-400 px-2 py-1 rounded shadow-sm">
                                           預估
                                       </span>
                                   </div>
