@@ -31,13 +31,19 @@ export interface Dividend {
   period: string; // Q1, Q2, M1, M2...
 }
 
-export interface PortfolioItem {
+// 新增交易紀錄介面
+export interface Transaction {
   id: string;
+  date: string;         // 交易日期
+  shares: number;       // 張數 (股數)
+  price: number;        // 單價
+  totalAmount: number;  // 成交總價 (通常是 shares * price，但允許使用者修改)
+}
+
+export interface PortfolioItem {
+  id: string;           // 投資組合 ID (通常用 ETF code)
   etf: EtfData;
-  shares: number;       // 持有張數
-  avgCost: number;      // 平均成本
-  totalCost: number;    // 總成本
-  fee: number;          // 手續費
+  transactions: Transaction[]; // 交易紀錄列表 (子表)
 }
 
 export interface AnalysisResult {

@@ -1,28 +1,27 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { EtfData, PortfolioItem, Dividend, CategoryKey } from './types';
+import { EtfData, PortfolioItem, Dividend, CategoryKey, Transaction } from './types';
 import { convertToCsvUrl, parseEtfData, parseDividendData } from './utils/sheetHelpers';
 import { analyzeSheets } from './services/geminiService';
 import PerformanceView from './components/PerformanceView';
 import PortfolioView from './components/PortfolioView';
 import SheetConfigView from './components/SheetConfigView';
-import { LayoutDashboard, PieChart, BrainCircuit, Bot, Megaphone, ArrowLeft, RotateCw, CheckCircle, AlertTriangle, Loader2, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, PieChart, BrainCircuit, Bot, Megaphone, CheckCircle, AlertTriangle, Loader2, BarChart3, Settings } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
-// Default URLs (Updated by User Request)
+// Default URLs
 const DEFAULT_URL_1 = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT1Vpn2SSkcf7QLqoMoAsdyusxtydfgIQD8pyoV6XojGFnf0zGu_WWuRnI4N3U-Hu0iGRzTrR7N-OD9/pub?output=csv";
 const DEFAULT_URL_2 = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQdHAXZ0A9Uno0bztIwJbuYSmLUAXUR8SDeHn-Z6GWkuwx1PGkUppejuytX2fjB33kRO1hV35Ku31fl/pub?output=csv";
 
 // Base Date for calculations (2025/01/02)
 const BASE_DATE_STR = "2025/01/02";
 
-// 新增 'analysis' 頁籤
 type Tab = 'performance' | 'portfolio' | 'analysis' | 'planning' | 'diagnosis' | 'announcement';
 
-const CACHE_KEY_DATA_1 = 'sheet_data_1_v6'; // Updated version key
-const CACHE_KEY_DATA_2 = 'sheet_data_2_v6'; // Updated version key
+const CACHE_KEY_DATA_1 = 'sheet_data_1_v6';
+const CACHE_KEY_DATA_2 = 'sheet_data_2_v6';
 const CACHE_KEY_TIME = 'sheet_last_fetch_time_v6';
-const CACHE_DURATION = 15 * 60 * 1000; // 15 分鐘 (毫秒)
+const CACHE_DURATION = 15 * 60 * 1000; // 15 分鐘
 
 const App: React.FC = () => {
   // App State
@@ -88,23 +87,20 @@ const App: React.FC = () => {
     setToast({ visible: true, message, type });
     setTimeout(() => {
         setToast(prev => ({ ...prev, visible: false }));
-    }, 3000); // 3秒後消失
+    }, 3000); 
   }, []);
 
   // --- Date Parsing Helper ---
-  // Handles: "202601" (YYYYMM), "2024/01/01", "2024-01-01"
   const parseSmartDate = (dateStr: string): Date | null => {
       if (!dateStr) return null;
       const cleanStr = dateStr.trim();
       
-      // Handle YYYYMM (6 digits)
       if (/^\d{6}$/.test(cleanStr)) {
           const y = parseInt(cleanStr.substring(0, 4));
-          const m = parseInt(cleanStr.substring(4, 6)) - 1; // Month is 0-indexed
-          return new Date(y, m, 1); // Assume 1st of the month
+          const m = parseInt(cleanStr.substring(4, 6)) - 1; 
+          return new Date(y, m, 1);
       }
 
-      // Handle Standard Date
       const standardDate = new Date(cleanStr.replace(/\./g, '/').replace(/-/g, '/'));
       if (!isNaN(standardDate.getTime())) {
           return standardDate;
@@ -114,8 +110,6 @@ const App: React.FC = () => {
   };
 
   // --- Yield Calculation Logic ---
-
-  // 1. TTM Yield (Past 365 Days)
   const calculateAnnualYield = (dividends: Dividend[], currentPrice: number): number => {
       if (!currentPrice || currentPrice === 0) return 0;
       if (!dividends || dividends.length === 0) return 0;
@@ -125,7 +119,6 @@ const App: React.FC = () => {
       const oneYearAgo = new Date(today);
       oneYearAgo.setFullYear(today.getFullYear() - 1);
 
-      // Filter: Date >= One Year Ago AND Date <= Today (Exclude Future)
       const ttmDividends = dividends.filter(d => {
           const dDate = parseSmartDate(d.date);
           if (!dDate) return false;
@@ -136,12 +129,10 @@ const App: React.FC = () => {
       return parseFloat(((totalAmount / currentPrice) * 100).toFixed(2));
   };
 
-  // 2. Estimated Yield (Triggered only if FUTURE data exists)
   const calculateEstimatedYield = (dividends: Dividend[], currentPrice: number, category: CategoryKey, code: string): number => {
       if (!currentPrice || currentPrice === 0) return 0;
       if (!dividends || dividends.length === 0) return 0;
 
-      // Sort Descending (Newest First)
       const sortedDivs = [...dividends].sort((a, b) => {
           const dA = parseSmartDate(a.date);
           const dB = parseSmartDate(b.date);
@@ -153,28 +144,22 @@ const App: React.FC = () => {
       const today = new Date();
       today.setHours(0,0,0,0);
 
-      // Rule: "有未來配息之料才計算 , 否則 輸入 空值 (0)"
       if (!latestDate || latestDate <= today) {
           return 0;
       }
 
-      // Determine Target Count (4 for Quarterly, 12 for Monthly)
       let targetCount = 4; // Default Quarterly
-
-      // Identify Monthly
       const isMonthlyBond = ['00937B', '00772B', '00933B', '00773B'].some(c => code.includes(c));
       if (category === 'AD' || isMonthlyBond) {
           targetCount = 12;
       }
 
-      // Sum the latest N dividends (including the future one)
       const targetDivs = sortedDivs.slice(0, targetCount);
       const totalEstimatedAmount = targetDivs.reduce((sum, d) => sum + d.amount, 0);
 
       return parseFloat(((totalEstimatedAmount / currentPrice) * 100).toFixed(2));
   };
 
-  // 處理資料解析與狀態設定 (共用邏輯)
   const processData = useCallback((txt1: string, txt2: string) => {
       try {
           const parsedEtfs = parseEtfData(txt2);
@@ -187,32 +172,26 @@ const App: React.FC = () => {
               console.warn("No ETFs parsed.");
           }
 
-          // Check if dividends are missing
           const totalDividends = Object.keys(dividendMap).length;
           if (parsedEtfs.length > 0 && totalDividends === 0) {
-            showToast("警告：抓不到配息資料\n請確認表單欄位名稱包含：「ETF 代碼」、「除息金額」、「除息日期」", 'warning');
+            showToast("警告：抓不到配息資料", 'warning');
           }
 
           const mergedEtfs = parsedEtfs.map(etf => {
               const divs = dividendMap[etf.code] || [];
               
-              // 1. Calculate TTM Yield (Actual Past Year)
               let finalYield = etf.dividendYield;
               const calculatedYield = calculateAnnualYield(divs, etf.priceCurrent);
               if (calculatedYield > 0) {
                   finalYield = calculatedYield;
               }
 
-              // 2. Calculate Estimated Yield (Future Based)
               const estYield = calculateEstimatedYield(divs, etf.priceCurrent, etf.category, etf.code);
 
-              // 3. Calculate Total Return (含息報酬率)
-              // 邏輯: (最新股價 + 基準日後的配息總和 - 基準股價) / 基準股價
               let finalTotalReturn = etf.totalReturn;
               if (etf.priceBase > 0) {
                   const dividendsSinceBase = divs.filter(d => {
                       const dDate = parseSmartDate(d.date);
-                      // 條件：配息日在基準日之後，且不晚於今天(排除未來)
                       return dDate && dDate >= baseDate && dDate <= today;
                   }).reduce((sum, d) => sum + d.amount, 0);
 
@@ -234,7 +213,7 @@ const App: React.FC = () => {
           setIsConfigured(true);
       } catch (e) {
           console.error("Error processing data:", e);
-          alert("資料解析發生錯誤，請檢查欄位格式。");
+          alert("資料解析發生錯誤");
           setIsConfigured(false);
       }
   }, [showToast]);
@@ -242,7 +221,6 @@ const App: React.FC = () => {
   const handleStartDataLoad = useCallback(async (url1: string, url2: string, forceRefresh = false) => {
     setIsLoading(true);
     try {
-        // 1. 檢查快取 (僅在非強制重新整理時檢查有效性)
         const cachedTimeStr = localStorage.getItem(CACHE_KEY_TIME);
         const cachedData1 = localStorage.getItem(CACHE_KEY_DATA_1);
         const cachedData2 = localStorage.getItem(CACHE_KEY_DATA_2);
@@ -250,7 +228,6 @@ const App: React.FC = () => {
         const now = Date.now();
         const isCacheValid = cachedTimeStr && (now - Number(cachedTimeStr) < CACHE_DURATION);
 
-        // 如果不是強制重新整理，且快取有效，直接使用快取
         if (!forceRefresh && isCacheValid && cachedData1 && cachedData2) {
             console.log("Using Cached Data");
             try {
@@ -260,11 +237,9 @@ const App: React.FC = () => {
               return;
             } catch (e) {
                console.warn("Cache parse failed, fetching fresh data.");
-               // fall through to fetch
             }
         }
 
-        // 2. 執行網路請求 (Smart Fetch)
         const csvUrl1 = convertToCsvUrl(url1);
         const csvUrl2 = convertToCsvUrl(url2);
 
@@ -274,10 +249,9 @@ const App: React.FC = () => {
         ]);
 
         if (txt1.trim().startsWith("<!DOCTYPE") || txt2.trim().startsWith("<!DOCTYPE")) {
-            throw new Error("抓取到的不是 CSV 資料，請檢查試算表權限是否已公開。");
+            throw new Error("抓取到的不是 CSV 資料");
         }
 
-        // 3. 儲存快取
         localStorage.setItem(CACHE_KEY_DATA_1, txt1);
         localStorage.setItem(CACHE_KEY_DATA_2, txt2);
         localStorage.setItem(CACHE_KEY_TIME, now.toString());
@@ -300,15 +274,12 @@ const App: React.FC = () => {
     }
   }, [processData]);
 
-  // 應用程式啟動時：1. 嘗試快取 2. 若無快取則自動讀取預設網址
   useEffect(() => {
     const cachedData1 = localStorage.getItem(CACHE_KEY_DATA_1);
     const cachedData2 = localStorage.getItem(CACHE_KEY_DATA_2);
     const cachedTimeStr = localStorage.getItem(CACHE_KEY_TIME);
 
     if (cachedData1 && cachedData2 && cachedTimeStr) {
-        // 有快取：直接載入
-        console.log("Auto-loading cached data on mount...");
         try {
             processData(cachedData1, cachedData2);
             setLastUpdated(new Date(Number(cachedTimeStr)));
@@ -316,43 +287,80 @@ const App: React.FC = () => {
             handleStartDataLoad(DEFAULT_URL_1, DEFAULT_URL_2, true);
         }
     } else {
-        // 無快取：自動執行第一次讀取 (Auto Start)
-        console.log("No cache found, auto-starting data load...");
         handleStartDataLoad(DEFAULT_URL_1, DEFAULT_URL_2, true);
     }
-  }, [processData, handleStartDataLoad]); // Added dependency to suppress lint warning, using useCallback to stabilize
-
-  const handleForceRefresh = () => {
-      handleStartDataLoad(DEFAULT_URL_1, DEFAULT_URL_2, true);
-  };
+  }, [processData, handleStartDataLoad]);
 
   const handleReset = () => {
-      // 僅切換回設定模式，不一定要刪除快取，讓使用者可以修改網址
-      // 但為了體驗一致，這裡暫時不刪資料，只是切換 UI 狀態
       setIsConfigured(false);
   };
 
+  // --- Portfolio Management (Updated Logic) ---
+
+  // 1. 新增/合併 持股
   const handleAddToPortfolio = useCallback((etf: EtfData) => {
-    const budget = 500000;
+    const BUDGET = 500000;
     const price = etf.priceCurrent || 10;
-    const shares = Math.floor(budget / (price * 1000));
-    const actualShares = Math.max(shares * 1000, 1000);
     
-    const newItem: PortfolioItem = {
-      id: Date.now().toString(),
-      etf,
-      shares: actualShares,
-      avgCost: price,
-      totalCost: actualShares * price,
-      fee: Math.round(actualShares * price * 0.001425)
+    // 計算可買整張數 (無條件捨去到千位)
+    const rawShares = Math.floor(BUDGET / price);
+    const calculatedShares = Math.floor(rawShares / 1000) * 1000;
+    const finalShares = calculatedShares > 0 ? calculatedShares : 1000; // 至少 1 張
+
+    const newTransaction: Transaction = {
+        id: Date.now().toString(),
+        date: new Date().toISOString().split('T')[0].replace(/-/g, '/'), // e.g. 2024/05/20
+        shares: finalShares,
+        price: price,
+        totalAmount: finalShares * price
     };
+
+    setPortfolio(prev => {
+        const existingItemIndex = prev.findIndex(p => p.id === etf.code);
+        
+        if (existingItemIndex >= 0) {
+            // 已存在：新增交易紀錄
+            const updatedPortfolio = [...prev];
+            updatedPortfolio[existingItemIndex] = {
+                ...updatedPortfolio[existingItemIndex],
+                transactions: [newTransaction, ...updatedPortfolio[existingItemIndex].transactions] // 新的排前面
+            };
+            return updatedPortfolio;
+        } else {
+            // 不存在：建立新項目
+            return [...prev, {
+                id: etf.code,
+                etf: etf,
+                transactions: [newTransaction]
+            }];
+        }
+    });
     
-    setPortfolio(prev => [...prev, newItem]);
-    showToast(`成功加入！\n${etf.name}`, 'success');
+    showToast(`成功加入！\n${etf.name}\n${finalShares}股`, 'success');
   }, [showToast]);
 
-  const handleRemoveFromPortfolio = (id: string) => {
-    setPortfolio(prev => prev.filter(p => p.id !== id));
+  // 2. 修改交易紀錄
+  const handleUpdateTransaction = (etfCode: string, updatedTx: Transaction) => {
+      setPortfolio(prev => prev.map(item => {
+          if (item.id !== etfCode) return item;
+          return {
+              ...item,
+              transactions: item.transactions.map(t => t.id === updatedTx.id ? updatedTx : t)
+          };
+      }));
+  };
+
+  // 3. 刪除交易紀錄 (若刪到沒交易，則移除整個 ETF)
+  const handleDeleteTransaction = (etfCode: string, txId: string) => {
+      setPortfolio(prev => {
+          return prev.map(item => {
+              if (item.id !== etfCode) return item;
+              return {
+                  ...item,
+                  transactions: item.transactions.filter(t => t.id !== txId)
+              };
+          }).filter(item => item.transactions.length > 0); // 移除沒有交易紀錄的 ETF
+      });
   };
 
   const handleAIDiagnosis = async () => {
@@ -372,7 +380,6 @@ const App: React.FC = () => {
   // --- Layout Components ---
 
   const renderContent = () => {
-      // Loading State (FullScreen or Overlay)
       if (isLoading && !isConfigured) {
           return (
               <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
@@ -411,7 +418,11 @@ const App: React.FC = () => {
           case 'portfolio': 
             return (
                 <div className="h-full p-4 overflow-y-auto scrollbar-hide">
-                    <PortfolioView portfolio={portfolio} onRemove={handleRemoveFromPortfolio} />
+                    <PortfolioView 
+                        portfolio={portfolio} 
+                        onUpdateTransaction={handleUpdateTransaction}
+                        onDeleteTransaction={handleDeleteTransaction}
+                    />
                 </div>
             );
 
@@ -465,14 +476,6 @@ const App: React.FC = () => {
       
       <header className="bg-blue-900 text-white h-20 shrink-0 flex items-center justify-between px-4 shadow-md z-20">
         <div className="flex items-center gap-3">
-            {/* 左側按鈕邏輯：如果已設定，顯示返回箭頭(去設定頁)。如果未設定(在設定頁)，不顯示。 */}
-            {isConfigured ? (
-                 <button onClick={handleReset} className="p-1 hover:bg-blue-800 rounded-full" title="手動設定表單">
-                    <ArrowLeft className="w-6 h-6" />
-                 </button>
-            ) : (
-                <div className="w-8"></div> // Placeholder for alignment
-            )}
             <h1 className="text-xl font-bold tracking-wide">
                 {isConfigured ? '投資助理' : '設定資料來源'}
             </h1>
@@ -481,12 +484,12 @@ const App: React.FC = () => {
             {isConfigured && (
                 <>
                     <button 
-                        onClick={handleForceRefresh}
+                        onClick={handleReset}
                         disabled={isLoading}
-                        className={`p-2 rounded-full hover:bg-blue-800 transition-all text-blue-100 hover:text-white ${isLoading ? 'animate-spin' : ''}`}
-                        title="更新資料"
+                        className={`p-2 rounded-full hover:bg-blue-800 transition-all text-blue-100 hover:text-white ${isLoading ? 'opacity-50' : ''}`}
+                        title="設定資料來源"
                     >
-                        <RotateCw className="w-5 h-5" />
+                        <Settings className="w-6 h-6" />
                     </button>
                     <span className="text-sm bg-blue-800 px-2 py-1 rounded text-blue-200">測試版</span>
                 </>
@@ -523,9 +526,7 @@ const App: React.FC = () => {
       )}
 
       {isConfigured && (
-          // 6個項目的導覽列，使用 grid-cols-6 並縮小文字以確保不跑版
           <nav className="bg-blue-900 text-white h-20 shrink-0 grid grid-cols-6 items-center text-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-20">
-            {/* 1. 績效查詢 */}
             <button 
                 onClick={() => setActiveTab('performance')}
                 className={`flex flex-col items-center justify-center h-full gap-1 transition-colors ${activeTab === 'performance' ? 'text-yellow-400' : 'text-slate-300 hover:text-white'}`}
@@ -533,8 +534,6 @@ const App: React.FC = () => {
                 <LayoutDashboard className="w-5 h-5" />
                 <span className="text-[10px] font-medium whitespace-nowrap">績效查詢</span>
             </button>
-            
-            {/* 2. 自組月配 */}
             <button 
                 onClick={() => setActiveTab('portfolio')}
                 className={`flex flex-col items-center justify-center h-full gap-1 transition-colors ${activeTab === 'portfolio' ? 'text-yellow-400' : 'text-slate-300 hover:text-white'}`}
@@ -542,8 +541,6 @@ const App: React.FC = () => {
                 <PieChart className="w-5 h-5" />
                 <span className="text-[10px] font-medium whitespace-nowrap">自組月配</span>
             </button>
-            
-            {/* 3. 分析資料 (新增) */}
             <button 
                 onClick={() => setActiveTab('analysis')}
                 className={`flex flex-col items-center justify-center h-full gap-1 transition-colors ${activeTab === 'analysis' ? 'text-yellow-400' : 'text-slate-300 hover:text-white'}`}
@@ -551,8 +548,6 @@ const App: React.FC = () => {
                 <BarChart3 className="w-5 h-5" />
                 <span className="text-[10px] font-medium whitespace-nowrap">分析資料</span>
             </button>
-
-            {/* 4. 智慧規劃 */}
             <button 
                 onClick={() => setActiveTab('planning')}
                 className={`flex flex-col items-center justify-center h-full gap-1 transition-colors ${activeTab === 'planning' ? 'text-yellow-400' : 'text-slate-300 hover:text-white'}`}
@@ -560,8 +555,6 @@ const App: React.FC = () => {
                 <BrainCircuit className="w-5 h-5" />
                 <span className="text-[10px] font-medium whitespace-nowrap">智慧規劃</span>
             </button>
-
-            {/* 5. AI診斷 */}
             <button 
                 onClick={() => setActiveTab('diagnosis')}
                 className={`flex flex-col items-center justify-center h-full gap-1 transition-colors ${activeTab === 'diagnosis' ? 'text-yellow-400' : 'text-slate-300 hover:text-white'}`}
@@ -569,8 +562,6 @@ const App: React.FC = () => {
                 <Bot className="w-5 h-5" />
                 <span className="text-[10px] font-medium whitespace-nowrap">AI診斷</span>
             </button>
-
-            {/* 6. 配息公告 */}
             <button 
                 onClick={() => setActiveTab('announcement')}
                 className={`flex flex-col items-center justify-center h-full gap-1 transition-colors ${activeTab === 'announcement' ? 'text-yellow-400' : 'text-slate-300 hover:text-white'}`}
