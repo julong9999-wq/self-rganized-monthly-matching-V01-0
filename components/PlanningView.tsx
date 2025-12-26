@@ -28,46 +28,93 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings, onOpen
   // Refs
   const recognitionRef = useRef<any>(null);
 
+  // 清理資源
   useEffect(() => {
-    // Initialize Speech Recognition if available
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = false;
-        recognitionRef.current.lang = 'zh-TW';
-        recognitionRef.current.interimResults = false;
-
-        recognitionRef.current.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          setPrompt(prev => prev ? `${prev} , ${transcript}` : transcript);
-          setIsListening(false);
-        };
-
-        recognitionRef.current.onerror = (event: any) => {
-          console.error("Speech recognition error", event.error);
-          setIsListening(false);
-        };
-
-        recognitionRef.current.onend = () => {
-          setIsListening(false);
-        };
+    return () => {
+      if (recognitionRef.current) {
+        try {
+            recognitionRef.current.stop();
+        } catch(e) {}
       }
-    }
+    };
   }, []);
 
   const toggleListening = () => {
-    if (!recognitionRef.current) {
-      alert("您的瀏覽器不支援語音輸入功能");
+    // 1. Check Browser Support
+    if (typeof window === 'undefined') return;
+    
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("您的瀏覽器不支援語音輸入功能 (Web Speech API)，請嘗試使用 Chrome, Safari 或 Edge 瀏覽器。");
       return;
     }
 
+    // 2. Initialize if not exists (Lazy Initialization for iOS Safari support)
+    if (!recognitionRef.current) {
+        try {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false; // 手機上 false 比較穩定
+            recognition.lang = 'zh-TW';
+            recognition.interimResults = false;
+
+            recognition.onstart = () => {
+                setIsListening(true);
+            };
+
+            recognition.onresult = (event: any) => {
+                const transcript = event.results[0][0].transcript;
+                if (transcript) {
+                    setPrompt(prev => {
+                        const cleanPrev = prev.trim();
+                        if (!cleanPrev) return transcript;
+                        if (cleanPrev.endsWith(',') || cleanPrev.endsWith('，')) return `${cleanPrev} ${transcript}`;
+                        return `${cleanPrev}，${transcript}`;
+                    });
+                }
+                setIsListening(false);
+            };
+
+            recognition.onerror = (event: any) => {
+                console.error("Speech recognition error", event.error);
+                setIsListening(false);
+                if (event.error === 'not-allowed') {
+                    alert("請允許麥克風權限以使用語音輸入。");
+                }
+            };
+
+            recognition.onend = () => {
+                setIsListening(false);
+            };
+
+            recognitionRef.current = recognition;
+        } catch (e) {
+            console.error("Failed to initialize speech recognition", e);
+            alert("語音功能初始化失敗");
+            return;
+        }
+    }
+
+    // 3. Start or Stop
     if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.warn("Stop failed", e);
+        setIsListening(false);
+      }
     } else {
-      recognitionRef.current.start();
-      setIsListening(true);
+      try {
+        recognitionRef.current.start();
+      } catch (e) {
+        console.warn("Start failed (maybe already started)", e);
+        // 如果已經開始，嘗試重置
+        try {
+             recognitionRef.current.stop();
+             setTimeout(() => {
+                 try { recognitionRef.current.start(); } catch(err) {}
+             }, 100);
+        } catch(err) {}
+      }
     }
   };
 
@@ -161,9 +208,9 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings, onOpen
               />
               <button
                 onClick={toggleListening}
-                className={`absolute right-3 bottom-3 p-2 rounded-full transition-all shadow-sm ${
+                className={`absolute right-3 bottom-3 p-2 rounded-full transition-all shadow-sm flex items-center justify-center ${
                   isListening 
-                    ? 'bg-red-500 text-white animate-pulse' 
+                    ? 'bg-red-500 text-white animate-pulse ring-2 ring-red-300' 
                     : 'bg-white text-slate-400 border border-slate-200 hover:text-blue-600 hover:border-blue-200'
                 }`}
                 title="語音輸入"
@@ -216,6 +263,7 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings, onOpen
                     // 標題樣式
                     h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-slate-900 mt-6 mb-4" {...props} />,
                     h2: ({node, ...props}) => <h2 className="text-xl font-bold text-slate-800 mt-5 mb-3 border-b pb-1 border-slate-100" {...props} />,
+                    // H3 改為卡片式標籤
                     h3: ({node, ...props}) => <h3 className="text-xl font-bold text-white bg-blue-600 px-4 py-2 rounded-lg mt-6 mb-3 shadow-sm inline-block" {...props} />,
                     
                     hr: ({node, ...props}) => <hr className="my-6 border-slate-200 border-dashed" {...props} />,
