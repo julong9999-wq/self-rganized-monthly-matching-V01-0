@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { EtfData, PortfolioItem } from './types';
 import { convertToCsvUrl, parseEtfData, parseDividendData } from './utils/sheetHelpers';
 import { analyzeSheets } from './services/geminiService';
@@ -133,21 +133,16 @@ const App: React.FC = () => {
   };
 
   const handleForceRefresh = () => {
-      // 使用目前的 rawData 或者預設 URL (這裡簡化，直接重用 Default，實務上應該記住使用者輸入的 URL)
-      // 在此範例中，我們假設使用者使用 Default URLs，或是我們應該將 URL 存入 State/Storage
-      // 為了簡單起見，我們這裡直接呼叫並帶入 forceRefresh=true
-      // 注意：這會重新使用 DEFAULT_URL_1/2，如果使用者有修改輸入框，這裡需要調整邏輯傳入正確 URL
-      // 但因 SheetConfigView 只有在未設定時顯示，我們假設一旦設定成功，URL 就不變
       handleStartDataLoad(DEFAULT_URL_1, DEFAULT_URL_2, true);
   };
 
   const handleReset = () => {
       setIsConfigured(false);
       setEtfs([]);
-      // Reset 時不一定要清空 Cache，讓下次進入可以快取
   };
 
-  const handleAddToPortfolio = (etf: EtfData) => {
+  // 使用 useCallback 避免不必要的 re-render
+  const handleAddToPortfolio = useCallback((etf: EtfData) => {
     const budget = 500000;
     const price = etf.priceCurrent || 10;
     const shares = Math.floor(budget / (price * 1000));
@@ -163,8 +158,9 @@ const App: React.FC = () => {
     };
     
     setPortfolio(prev => [...prev, newItem]);
-    alert(`已將 ${etf.name} 加入自組清單`);
-  };
+    // 移除 alert，避免在移動端造成點擊事件穿透或焦點問題
+    console.log(`Added ${etf.name} to portfolio`);
+  }, []);
 
   const handleRemoveFromPortfolio = (id: string) => {
     setPortfolio(prev => prev.filter(p => p.id !== id));
@@ -252,10 +248,8 @@ const App: React.FC = () => {
   };
 
   return (
-    // Global Container
     <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900 max-w-md mx-auto shadow-2xl overflow-hidden border-x border-slate-200">
       
-      {/* 1. 頂端：標語區 (藍底白字) */}
       <header className="bg-blue-900 text-white h-20 shrink-0 flex items-center justify-between px-4 shadow-md z-20">
         <div className="flex items-center gap-3">
             {isConfigured && (
@@ -284,12 +278,10 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* 2. 中央：畫面顯示區 (主要變更：overflow-hidden, no padding) */}
       <main className="flex-grow overflow-hidden bg-slate-50 relative">
         {renderContent()}
       </main>
 
-      {/* 3. 底部：功能按鈕區 (藍底白字) */}
       {isConfigured && (
           <nav className="bg-blue-900 text-white h-20 shrink-0 grid grid-cols-5 items-center text-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-20">
             <button 

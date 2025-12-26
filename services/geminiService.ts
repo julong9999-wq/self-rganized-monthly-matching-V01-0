@@ -1,6 +1,19 @@
 
 import { GoogleGenAI } from "@google/genai";
 
+// 安全獲取 API Key 的輔助函式
+const getSafeApiKey = (): string => {
+  try {
+    // 使用 typeof 檢查避免 ReferenceError
+    if (typeof process !== 'undefined' && process && process.env) {
+      return process.env.API_KEY || '';
+    }
+  } catch (e) {
+    console.warn("Environment variable access failed gracefully.");
+  }
+  return '';
+};
+
 export const analyzeSheets = async (
   sheet1Content: string, 
   sheet2Content: string,
@@ -9,17 +22,8 @@ export const analyzeSheets = async (
   const modelId = 'gemini-3-flash-preview'; 
   const today = new Date().toLocaleDateString('zh-TW');
 
-  // 安全獲取 API Key，防止在無 process 的環境 (如瀏覽器) 中崩潰導致白屏
-  let apiKey = '';
-  try {
-    if (typeof process !== 'undefined' && process.env) {
-      apiKey = process.env.API_KEY || '';
-    }
-  } catch (e) {
-    console.warn("Unable to access process.env");
-  }
-
-  // 初始化 AI (移至函式內部)
+  // 初始化 AI
+  const apiKey = getSafeApiKey();
   const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `

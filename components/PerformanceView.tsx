@@ -267,10 +267,11 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
                                 </span>
                             </div>
                             <div className="text-right flex justify-end">
-                                {/* g. 詳細資料按鈕 (加上 stopPropagation 避免冒泡) */}
+                                {/* g. 詳細資料按鈕 (加上 stopPropagation 和 preventDefault 避免冒泡) */}
                                 <button 
                                     onClick={(e) => {
                                         e.stopPropagation();
+                                        e.preventDefault();
                                         setSelectedEtf(etf);
                                     }}
                                     className="w-8 h-8 flex items-center justify-center bg-white/60 text-slate-700 rounded-lg hover:bg-white hover:text-black transition-colors border border-black/5"
@@ -297,10 +298,11 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
                                 </span>
                             </div>
                             <div className="text-right flex justify-end">
-                                {/* h. 自組月配按鈕 (加上 stopPropagation 避免觸發詳細資料或其他異常) */}
+                                {/* h. 自組月配按鈕 (加上 stopPropagation 和 preventDefault 避免觸發詳細資料或其他異常) */}
                                 <button 
                                     onClick={(e) => {
                                         e.stopPropagation();
+                                        e.preventDefault();
                                         onAddToPortfolio(etf);
                                     }}
                                     className="w-8 h-8 flex items-center justify-center bg-emerald-100/50 text-emerald-800 rounded-full hover:bg-emerald-200 transition-colors border border-emerald-200/50 shadow-sm"
