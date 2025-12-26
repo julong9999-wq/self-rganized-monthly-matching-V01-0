@@ -632,12 +632,12 @@ const App: React.FC = () => {
                                 <ReactMarkdown 
                                     remarkPlugins={[remarkGfm]}
                                     components={{
-                                        // 強制設定文字大小為 16px (text-base)
-                                        p: ({node, ...props}) => <p className="text-base text-slate-700 leading-relaxed mb-4" {...props} />,
-                                        li: ({node, ...props}) => <li className="text-base text-slate-700 leading-relaxed" {...props} />,
+                                        // 修正：文字大小改為 text-lg (18px)
+                                        p: ({node, ...props}) => <p className="text-lg text-slate-700 leading-relaxed mb-4" {...props} />,
+                                        li: ({node, ...props}) => <li className="text-lg text-slate-700 leading-relaxed border-l-2 border-blue-200 pl-2 ml-1" {...props} />,
                                         strong: ({node, ...props}) => <strong className="font-bold text-blue-900" {...props} />,
 
-                                        // 讓表格可以左右滑動的容器
+                                        // 讓表格可以左右滑動的容器 (保留表格支援但 Prompt 要求 AI 不用)
                                         table: ({node, ...props}) => (
                                             <div className="overflow-x-auto my-4 border border-slate-200 rounded-lg shadow-sm">
                                                 <table className="min-w-full divide-y divide-slate-200" {...props} />
@@ -646,15 +646,14 @@ const App: React.FC = () => {
                                         thead: ({node, ...props}) => <thead className="bg-blue-50 text-blue-900 font-bold" {...props} />,
                                         tbody: ({node, ...props}) => <tbody className="divide-y divide-slate-200 bg-white" {...props} />,
                                         tr: ({node, ...props}) => <tr className="hover:bg-slate-50/50 transition-colors" {...props} />,
-                                        // th: 標題保持不換行，確保寬度足夠
                                         th: ({node, ...props}) => <th className="px-3 py-3 text-left text-sm font-bold uppercase tracking-wider whitespace-nowrap border-b border-blue-100 min-w-[60px]" {...props} />,
-                                        // td: 內容允許換行 (移除 whitespace-nowrap)，增加 min-w 防止過度擠壓，align-top 讓長文對齊頂部
-                                        td: ({node, ...props}) => <td className="px-3 py-3 text-base text-slate-700 border-b border-slate-100 min-w-[120px] align-top leading-relaxed" {...props} />,
+                                        td: ({node, ...props}) => <td className="px-3 py-3 text-lg text-slate-700 border-b border-slate-100 min-w-[120px] align-top leading-relaxed" {...props} />,
                                         
                                         // 標題樣式
                                         h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-slate-900 mt-6 mb-4" {...props} />,
                                         h2: ({node, ...props}) => <h2 className="text-xl font-bold text-slate-800 mt-5 mb-3 border-b pb-1 border-slate-100" {...props} />,
-                                        h3: ({node, ...props}) => <h3 className="text-lg font-bold text-slate-800 mt-4 mb-2" {...props} />,
+                                        // H3 改為卡片式標籤
+                                        h3: ({node, ...props}) => <h3 className="text-xl font-bold text-white bg-blue-600 px-4 py-2 rounded-lg mt-6 mb-3 shadow-sm inline-block" {...props} />,
                                     }}
                                 >
                                     {diagnosis}

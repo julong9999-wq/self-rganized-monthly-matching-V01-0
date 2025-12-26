@@ -205,25 +205,21 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings, onOpen
              <ReactMarkdown 
                 remarkPlugins={[remarkGfm]}
                 components={{
-                    // 強制設定文字大小為 16px (text-base)
-                    p: ({node, ...props}) => <p className="text-base text-slate-700 leading-relaxed mb-4" {...props} />,
+                    // 修正：文字大小改為 text-lg (18px)
+                    p: ({node, ...props}) => <p className="text-lg text-slate-700 leading-relaxed mb-4" {...props} />,
                     
-                    // 清單樣式優化: 改為卡片式細項
-                    ul: ({node, ...props}) => <ul className="space-y-2 mb-6" {...props} />,
-                    li: ({node, ...props}) => <li className="text-base text-slate-700 pl-2 border-l-2 border-blue-200 ml-1" {...props} />,
+                    // 清單樣式
+                    ul: ({node, ...props}) => <ul className="space-y-3 mb-6" {...props} />,
+                    li: ({node, ...props}) => <li className="text-lg text-slate-700 pl-2 border-l-2 border-blue-200 ml-1 leading-relaxed" {...props} />,
                     strong: ({node, ...props}) => <strong className="font-bold text-blue-900" {...props} />,
                     
-                    // 標題樣式: 針對清單標題 (H3) 做卡片頭部樣式
+                    // 標題樣式
                     h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-slate-900 mt-6 mb-4" {...props} />,
                     h2: ({node, ...props}) => <h2 className="text-xl font-bold text-slate-800 mt-5 mb-3 border-b pb-1 border-slate-100" {...props} />,
-                    // H3 用於單檔 ETF 的名稱
-                    h3: ({node, ...props}) => <h3 className="text-lg font-bold text-white bg-blue-600 px-4 py-2 rounded-lg mt-6 mb-3 shadow-sm inline-block" {...props} />,
+                    h3: ({node, ...props}) => <h3 className="text-xl font-bold text-white bg-blue-600 px-4 py-2 rounded-lg mt-6 mb-3 shadow-sm inline-block" {...props} />,
                     
-                    // 分隔線
                     hr: ({node, ...props}) => <hr className="my-6 border-slate-200 border-dashed" {...props} />,
-                    
-                    // 引用 (用於總結)
-                    blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-500 bg-blue-50 pl-4 py-2 rounded-r-lg italic text-slate-700 my-4" {...props} />
+                    blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-500 bg-blue-50 pl-4 py-3 rounded-r-lg italic text-slate-700 my-4 text-lg" {...props} />
                 }}
              >
                 {result}
