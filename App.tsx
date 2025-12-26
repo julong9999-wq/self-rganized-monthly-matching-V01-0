@@ -6,6 +6,7 @@ import { analyzeSheets } from './services/geminiService';
 import PerformanceView from './components/PerformanceView';
 import PortfolioView from './components/PortfolioView';
 import SheetConfigView from './components/SheetConfigView';
+import AnnouncementView from './components/AnnouncementView';
 import { LayoutDashboard, PieChart, BrainCircuit, Bot, Megaphone, CheckCircle, AlertTriangle, Loader2, BarChart3, Settings } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
@@ -457,6 +458,13 @@ const App: React.FC = () => {
                             {diagnosis ? <ReactMarkdown>{diagnosis}</ReactMarkdown> : <p className="text-slate-400 text-lg">點擊上方按鈕，讓 AI 分析您的投資組合數據。</p>}
                         </div>
                     </div>
+                </div>
+            );
+
+          case 'announcement':
+            return (
+                <div className="h-full overflow-hidden">
+                    <AnnouncementView etfs={etfs} />
                 </div>
             );
             

@@ -169,29 +169,37 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="text-slate-500 text-xs border-b border-slate-200/50">
-                                <th className="py-2 px-4 font-medium">除息日 (近 → 遠)</th>
-                                <th className="py-2 px-4 text-right font-medium">金額</th>
-                                <th className="py-2 px-4 text-right font-medium">狀態</th>
+                                <th className="py-2 px-2 text-left font-medium">配息日期</th>
+                                <th className="py-2 px-2 text-right font-medium">配息金額</th>
+                                <th className="py-2 px-2 text-right font-medium">單次殖利率</th>
+                                <th className="py-2 px-2 text-right font-medium">狀態</th>
                             </tr>
                         </thead>
                         <tbody>
                             {displayDividends.length > 0 ? (
                                 displayDividends.map((div, idx) => {
                                     const isFuture = isFutureDate(div.date);
+                                    
+                                    // 計算單次殖利率
+                                    const singleYield = selectedEtf.priceCurrent > 0 
+                                        ? ((div.amount / selectedEtf.priceCurrent) * 100).toFixed(2) 
+                                        : "0.00";
+
                                     // 未來配息資料: 底色為淡紅色 (bg-red-50)
                                     return (
                                         <tr key={idx} className={`border-b border-slate-100/50 ${isFuture ? 'bg-red-50' : ''}`}>
-                                            <td className="py-3 px-4 text-slate-800 font-medium text-sm">{div.date}</td>
-                                            <td className="py-3 px-4 text-right text-slate-800 font-bold text-sm">{div.amount}</td>
-                                            <td className="py-3 px-4 text-right text-xs">
-                                                {isFuture ? <span className="text-red-500 font-bold">預估/未除息</span> : <span className="text-slate-400">已除息</span>}
+                                            <td className="py-3 px-2 text-slate-800 font-medium text-sm">{div.date}</td>
+                                            <td className="py-3 px-2 text-right text-slate-800 font-bold text-sm">{div.amount}</td>
+                                            <td className="py-3 px-2 text-right text-blue-600 font-medium text-sm">{singleYield}%</td>
+                                            <td className="py-3 px-2 text-right text-xs">
+                                                {isFuture ? <span className="text-red-500 font-bold">預估</span> : <span className="text-slate-400">已除息</span>}
                                             </td>
                                         </tr>
                                     );
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan={3} className="py-8 text-center text-slate-400 text-sm">無配息資料</td>
+                                    <td colSpan={4} className="py-8 text-center text-slate-400 text-sm">無配息資料</td>
                                 </tr>
                             )}
                         </tbody>
@@ -201,6 +209,7 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
                   <div className="mt-6 p-4 bg-white/60 rounded-lg text-xs text-slate-500 leading-relaxed border border-black/5">
                       <p>※ 資料依日期由近至遠排序。</p>
                       <p>※ 紅色底色表示為系統判讀之「未來配息資料」或「預估值」。</p>
+                      <p>※ 單次殖利率計算方式：配息金額 / 目前股價 ({selectedEtf.priceCurrent})。</p>
                   </div>
               </div>
           </div>
