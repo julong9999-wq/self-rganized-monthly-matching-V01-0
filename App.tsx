@@ -96,12 +96,31 @@ const App: React.FC = () => {
       if (!dateStr) return null;
       const cleanStr = dateStr.trim();
       
+      // 1. YYYYMM format
       if (/^\d{6}$/.test(cleanStr)) {
           const y = parseInt(cleanStr.substring(0, 4));
           const m = parseInt(cleanStr.substring(4, 6)) - 1; 
           return new Date(y, m, 1);
       }
 
+      // 2. Separator format (Slash, Dot, Dash)
+      // Check for ROC year (e.g. 113/01/01)
+      const parts = cleanStr.split(/[\/\.\-]/);
+      if (parts.length === 3) {
+          let y = parseInt(parts[0]);
+          const m = parseInt(parts[1]) - 1;
+          const d = parseInt(parts[2]);
+          
+          // 若年份小於 1911 且為 3 位數，判定為民國年
+          if (y < 1911 && y > 10) {
+              y += 1911;
+          }
+          
+          const dt = new Date(y, m, d);
+          return isNaN(dt.getTime()) ? null : dt;
+      }
+
+      // 3. Fallback standard parsing
       const standardDate = new Date(cleanStr.replace(/\./g, '/').replace(/-/g, '/'));
       if (!isNaN(standardDate.getTime())) {
           return standardDate;
@@ -291,6 +310,31 @@ const App: React.FC = () => {
         handleStartDataLoad(DEFAULT_URL_1, DEFAULT_URL_2, true);
     }
   }, [processData, handleStartDataLoad]);
+
+  // Sync portfolio with latest etfs data
+  useEffect(() => {
+    if (etfs.length > 0 && portfolio.length > 0) {
+      setPortfolio(prev => {
+        const next = prev.map(item => {
+          const latest = etfs.find(e => e.code === item.id);
+          // Only update if data is different (reference check for dividends, value check for others)
+          if (latest && (
+             latest.priceCurrent !== item.etf.priceCurrent || 
+             latest.dividendYield !== item.etf.dividendYield ||
+             latest.dividends !== item.etf.dividends
+          )) {
+             return { ...item, etf: latest };
+          }
+          return item;
+        });
+        // Simple comparison to avoid unnecessary state updates if nothing changed
+        if (next.some((item, i) => item !== prev[i])) {
+            return next;
+        }
+        return prev;
+      });
+    }
+  }, [etfs, portfolio.length]); // Depend on etfs update
 
   const handleReset = () => {
       setIsConfigured(false);
@@ -512,17 +556,23 @@ const App: React.FC = () => {
       
       {/* 1. 標語區 (Header) - 固定不可滑動 */}
       <header className="bg-blue-900 text-white h-20 shrink-0 flex items-center justify-between px-4 shadow-md z-20 relative">
+        
+        {/* 左側: 保留空白 div 以維持 justify-between 排版 (因圖片無法讀取而取消) */}
+        <div className="z-10 w-10">
+        </div>
+
+        {/* 中間: 標題 (絕對定位) */}
         <div className="absolute left-0 right-0 flex justify-center pointer-events-none">
-            <h1 className="text-xl font-bold tracking-wide pointer-events-auto">
+            <h1 className="text-xl font-bold tracking-wide pointer-events-auto shadow-sm">
                 {getHeaderTitle()}
             </h1>
         </div>
-        
-        {/* Left Placeholder (if needed in future) */}
-        <div className="z-10"></div>
 
-        {/* Right Settings Button */}
-        <div className="flex items-center gap-2 z-10">
+        {/* 右側: 測試版文字 + 設定按鈕 */}
+        <div className="flex items-center gap-3 z-10">
+            <span className="text-[13px] font-bold text-yellow-300 tracking-wider border border-yellow-400/30 px-2 py-1 rounded bg-yellow-400/10">
+                測試版
+            </span>
             {isConfigured && (
                 <button 
                     onClick={handleReset}
