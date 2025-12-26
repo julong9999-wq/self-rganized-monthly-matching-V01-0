@@ -2,13 +2,42 @@
 import { EtfData, CategoryKey, Dividend } from '../types';
 
 /**
+ * Robust CSV Row Parser
+ * Handles quoted fields containing commas correctly.
+ * Example: '2024/01/01,"1,200",0056' -> ['2024/01/01', '1,200', '0056']
+ */
+const parseCSVRow = (text: string): string[] => {
+  const result: string[] = [];
+  let current = '';
+  let inQuote = false;
+  
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    
+    if (char === '"') {
+      if (inQuote && text[i + 1] === '"') {
+        current += '"';
+        i++; // skip escaped quote
+      } else {
+        inQuote = !inQuote;
+      }
+    } else if (char === ',' && !inQuote) {
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  return result.map(col => col.trim().replace(/^"|"$/g, '').replace(/""/g, '"'));
+};
+
+/**
  * Converts a Google Sheet URL to a CSV export URL.
- * Handles both 'pubhtml' and standard 'edit' URLs.
  */
 export const convertToCsvUrl = (url: string, gid?: string): string => {
   if (!url) return '';
   
-  // 1. Handle "Published to Web" URLs
   if (url.includes('output=csv') && !gid) return url;
   
   let baseUrl = url;
@@ -20,14 +49,11 @@ export const convertToCsvUrl = (url: string, gid?: string): string => {
     return csvUrl;
   }
 
-  // 2. Handle standard "Edit" URLs (Browser address bar copy-paste)
-  // Format: https://docs.google.com/spreadsheets/d/KEY/edit#gid=123
   if (url.includes('/edit')) {
       const parts = url.split('/edit');
-      baseUrl = parts[0]; // Gets part before /edit
+      baseUrl = parts[0]; 
       
-      let targetGid = gid || '0'; // Default to first sheet
-      // Try to extract gid from the original URL hash or query
+      let targetGid = gid || '0'; 
       const gidMatch = url.match(/[#&]gid=(\d+)/);
       if (gidMatch) {
           targetGid = gidMatch[1];
@@ -36,9 +62,7 @@ export const convertToCsvUrl = (url: string, gid?: string): string => {
       return `${baseUrl}/export?format=csv&gid=${targetGid}`;
   }
 
-  // 3. Fallback: try appending export param if it looks like a sheet root
   if (url.includes('docs.google.com/spreadsheets/d/')) {
-      // Remove trailing slashes
       baseUrl = url.replace(/\/+$/, '');
       const separator = baseUrl.includes('?') ? '&' : '?';
       return `${baseUrl}${separator}export?format=csv`;
@@ -86,7 +110,6 @@ const CATEGORY_MAP: Record<string, CategoryKey> = {
 
 /**
  * Parses the Dividend CSV content.
- * Returns a map of Code -> Dividend[].
  */
 export const parseDividendData = (csvContent: string): Record<string, Dividend[]> => {
   const lines = csvContent.split(/\r?\n/).filter(line => line.trim() !== '');
@@ -96,15 +119,19 @@ export const parseDividendData = (csvContent: string): Record<string, Dividend[]
   
   // 1. Header Detection
   let headerRowIndex = 0;
-  let header = lines[0].split(',').map(c => c.trim().toLowerCase());
+  // Use parseCSVRow for header as well
+  let header = parseCSVRow(lines[0]).map(c => c.trim().toLowerCase());
 
-  // Simple scan for header if first row isn't it
-  if (!header.some(h => h.includes('代號') || h.includes('code'))) {
+  // Scan for header if first row isn't it
+  // Updated keywords based on user input: ETF 代碼
+  if (!header.some(h => h.includes('代號') || h.includes('code') || h.includes('etf 代碼') || h.includes('symbol'))) {
       for(let i=0; i<Math.min(lines.length, 5); i++) {
-          const rowLower = lines[i].toLowerCase();
-          if (rowLower.includes('代號') || rowLower.includes('code')) {
+          const rowValues = parseCSVRow(lines[i]);
+          const rowLower = rowValues.map(c => c.toLowerCase());
+          
+          if (rowLower.some(c => c.includes('代號') || c.includes('code') || c.includes('etf 代碼') || c.includes('symbol'))) {
               headerRowIndex = i;
-              header = lines[i].split(',').map(c => c.trim().toLowerCase());
+              header = rowLower;
               break;
           }
       }
@@ -112,26 +139,33 @@ export const parseDividendData = (csvContent: string): Record<string, Dividend[]
 
   const findCol = (keywords: string[]) => header.findIndex(h => keywords.some(k => h.includes(k)));
 
-  const idxCode = findCol(['代號', 'code', '股票代號']);
-  const idxDate = findCol(['除息日', 'date', '配息日', '日期']);
-  const idxAmount = findCol(['配息', '金額', 'amount', '現金股利']);
+  // Enhanced keywords for detection based on user input
+  // Added 'ETF 代碼', '除息日期', '除息金額'
+  const idxCode = findCol(['etf 代碼', '股號', '代號', 'code', '股票代號', 'symbol', '代碼']);
+  const idxDate = findCol(['除息日期', '除息日', 'date', '配息日', '日期', '除息交易日', '發放日', '除息']);
+  // Broadened amount keywords
+  const idxAmount = findCol(['除息金額', '配息', '金額', 'amount', '現金股利', '分配金額', '現金', '股利', 'distribution']);
 
   if (idxCode === -1 || idxAmount === -1) {
-      console.warn("Could not find Code or Amount columns in Dividend Sheet");
+      console.warn("Parse Dividend Failed: Missing required columns (Code or Amount). Header:", header);
       return {};
   }
 
   for (let i = headerRowIndex + 1; i < lines.length; i++) {
-      const row = lines[i].split(',').map(c => c.trim());
-      // Safety check for row length
+      const row = parseCSVRow(lines[i]);
       if (row.length <= idxCode) continue;
 
-      const code = row[idxCode]?.replace(/['"]/g, '').trim();
+      const rawCode = row[idxCode];
+      const code = rawCode ? rawCode.replace(/['"]/g, '').trim() : '';
       
-      if (code && CATEGORY_MAP[code]) {
+      // Removed CATEGORY_MAP check here to ensure we capture all data available in the sheet.
+      // Filtering will happen when merging with ETF list.
+      if (code) {
           const amountStr = row[idxAmount]?.replace(/[^0-9.]/g, '') || '0';
           const amount = parseFloat(amountStr);
-          const date = idxDate !== -1 ? row[idxDate] : '';
+          let date = idxDate !== -1 ? row[idxDate] : '';
+          
+          if (date) date = date.replace(/['"]/g, '').trim();
 
           if (amount > 0) {
               if (!dividendMap[code]) {
@@ -162,33 +196,36 @@ export const parseEtfData = (csvContent: string): EtfData[] => {
   let header: string[] = [];
 
   for (let i = 0; i < Math.min(lines.length, 10); i++) {
-     const rowLower = lines[i].toLowerCase();
-     if ((rowLower.includes('代碼') || rowLower.includes('代號') || rowLower.includes('code') || rowLower.includes('symbol'))) {
+     const rowValues = parseCSVRow(lines[i]);
+     const rowLower = rowValues.map(c => c.toLowerCase());
+     
+     // Added 'ETF 代碼' to the header check
+     if (rowLower.some(c => c.includes('代碼') || c.includes('代號') || c.includes('code') || c.includes('etf 代碼') || c.includes('symbol'))) {
          headerRowIndex = i;
-         header = lines[i].split(',').map(c => c.trim().toLowerCase());
+         header = rowLower;
          break;
      }
   }
 
   if (headerRowIndex === -1) {
      headerRowIndex = 0;
-     header = lines[0].split(',').map(c => c.trim().toLowerCase());
+     header = parseCSVRow(lines[0]).map(c => c.toLowerCase());
   }
   
   const findCol = (keywords: string[]) => header.findIndex(h => keywords.some(k => h.includes(k)));
 
-  const idxCode = findCol(['代碼', '代號', 'code', 'symbol', '股票代號']);
-  
-  // 修正：嚴格尋找名稱欄位，排除 "商品" (Product) 避免抓到 "季配商品"
-  // 優先順序：股票名稱 > ETF名稱 > 名稱 > Name
-  const idxName = findCol(['股票名稱', 'etf名稱', '名稱', 'name']);
-  
-  const idxMarket = findCol(['市場', 'market', '類別', '上市', '上櫃', 'type', '掛牌']);
+  // Added 'ETF 代碼' here as well
+  const idxCode = findCol(['etf 代碼', '股號', '代碼', '代號', 'code', 'symbol', '股票代號']);
+  const idxName = findCol(['etf 名稱', '股名', '股票名稱', 'etf名稱', '名稱', 'name']); // Added 'ETF 名稱'
+  const idxMarket = findCol(['上市/ 上櫃', '市場', 'market', '類別', '上市', '上櫃', 'type', '掛牌']); // Added '上市/ 上櫃'
   
   // --- 2. Dynamic Price Column Detection ---
   const dateColIndices = header.map((h, index) => {
+      // Matches YYYY/MM/DD, YYYY-MM-DD, MM/DD
       if (/(\d{1,4}[-./]\d{1,2}[-./]\d{1,2})|(\d{1,2}[-./]\d{1,2})/.test(h)) {
-          return { index, text: lines[headerRowIndex].split(',')[index].trim() };
+          // Re-fetch original casing for display
+          const originalHeader = parseCSVRow(lines[headerRowIndex])[index];
+          return { index, text: originalHeader.trim() };
       }
       return null;
   }).filter((item): item is { index: number, text: string } => item !== null);
@@ -201,20 +238,18 @@ export const parseEtfData = (csvContent: string): EtfData[] => {
       idxPriceCurrent = lastDateCol.index;
       currentPriceDateLabel = lastDateCol.text;
   } else {
-      idxPriceCurrent = findCol(['收盤', '現價', '成交', 'price', 'current', '最近', 'close', 'last']);
+      idxPriceCurrent = findCol(['收盤價', '收盤', '現價', '成交', 'price', 'current', '最近', 'close', 'last']);
       currentPriceDateLabel = '最新股價';
   }
 
-  // Base Price (Cost/Base)
   const idxPriceBase = findCol(['成本', '1/2', '01/02', '起始', 'base', 'open', 'start']); 
   const idxYield = findCol(['殖利率', 'yield', '配息率']);
   const idxReturn = findCol(['報酬', '損益', 'return']);
 
   // --- 3. Parse Data Rows ---
   for (let i = headerRowIndex + 1; i < lines.length; i++) {
-    const row = lines[i].split(',').map(c => c.trim());
+    const row = parseCSVRow(lines[i]);
     
-    // Safety: ensure row has enough columns for code
     if (idxCode !== -1 && row.length <= idxCode) continue;
 
     let code = '';
@@ -223,22 +258,22 @@ export const parseEtfData = (csvContent: string): EtfData[] => {
     if (idxCode !== -1 && row[idxCode]) code = row[idxCode];
     if (idxName !== -1 && row[idxName]) name = row[idxName];
 
-    // Fallback Code detection
     if (!code) {
         if (row[0] && /^[0-9]{4,6}[A-Z]?$/.test(row[0])) code = row[0];
         else if (row[1] && /^[0-9]{4,6}[A-Z]?$/.test(row[1])) code = row[1];
     }
     
-    code = code.replace(/['"]/g, '').trim();
+    code = code ? code.replace(/['"]/g, '').trim() : '';
+    
+    if (!code) continue;
+
     const category = CATEGORY_MAP[code];
 
     if (category) {
-        // Fallback Name detection: 如果名稱欄位沒抓到，或者抓到的名稱包含 "商品" (表示抓錯欄位)，嘗試代碼右邊那欄
         if ((!name || name.includes('商品')) && idxCode !== -1 && row.length > idxCode + 1) {
             name = row[idxCode + 1];
         }
 
-        // --- Determine Market Label (上市 vs 上櫃) ---
         let marketLabel = '上市';
         if (category === 'AE' || code.includes('B') || (name && name.includes('債'))) {
             marketLabel = '上櫃';
@@ -283,7 +318,6 @@ export const parseEtfData = (csvContent: string): EtfData[] => {
             returnRate = ((priceCurrent - priceBase) / priceBase) * 100;
         }
 
-        // Ultimate Fallback
         if (priceCurrent === 0) {
              const nums = row.map((val, index) => ({ val: parseNum(val), index }))
                              .filter(({ val, index }) => !isNaN(val) && val > 0 && index !== idxCode);
@@ -310,8 +344,6 @@ export const parseEtfData = (csvContent: string): EtfData[] => {
     }
   }
 
-  // 排序：強制依照股票代碼排序
   etfs.sort((a, b) => a.code.localeCompare(b.code));
-
   return etfs;
 };

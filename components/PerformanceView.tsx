@@ -48,6 +48,34 @@ const getBondType = (code: string): CategoryKey => {
     return 'AC'; 
 };
 
+// Date Parsing Helper for Comparison
+const getDateValue = (dateStr: string): number => {
+    if (!dateStr) return 0;
+    const cleanStr = dateStr.trim();
+    
+    // 處理 YYYYMM 格式 (例如 202412)
+    if (/^\d{6}$/.test(cleanStr)) {
+        const y = parseInt(cleanStr.substring(0, 4));
+        const m = parseInt(cleanStr.substring(4, 6)) - 1;
+        return new Date(y, m, 1).getTime();
+    }
+
+    // 處理一般日期格式 (2024/1/2, 2024-01-02, 2024.01.02)
+    const standardDate = new Date(cleanStr.replace(/\./g, '/').replace(/-/g, '/'));
+    if (!isNaN(standardDate.getTime())) {
+        return standardDate.getTime();
+    }
+    return 0;
+};
+
+// Date helper for future check
+const isFutureDate = (dateStr: string) => {
+    const dateVal = getDateValue(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return dateVal > today.getTime();
+};
+
 const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated }) => {
   const activeCatState = useState<CategoryKey>('AA');
   const [activeCat, setActiveCat] = activeCatState;
@@ -79,17 +107,6 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
 
   // 顯示用日期
   const displayDate = etfs.length > 0 && etfs[0].dataDate ? etfs[0].dataDate : '最新股價';
-  
-  // 輔助函式：判斷是否為未來日期
-  const isFutureDate = (dateStr: string) => {
-    if (!dateStr) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    let targetDate = new Date(dateStr);
-    if (isNaN(targetDate.getTime())) return false; 
-    return targetDate > today;
-  };
 
   // --- 顏色樣式邏輯 ---
   const getCardStyle = (etf: EtfData) => {
@@ -120,9 +137,9 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
       const isMonthly = resolvedCategory === 'AD';
       const baseLimit = isMonthly ? 12 : 4; // 月配 12 筆，季配 4 筆
 
-      // 排序：近 -> 遠
+      // 排序：近 -> 遠 (數值比對，確保 12月 > 11月 > 1月)
       const allSortedDividends = [...selectedEtf.dividends].sort((a, b) => {
-          return new Date(b.date).getTime() - new Date(a.date).getTime();
+           return getDateValue(b.date) - getDateValue(a.date);
       });
 
       // h. 配息資料如有 預計配息資料 (未來日期) 筆數需 N+1 筆
@@ -140,7 +157,9 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
                   </button>
                   <div className="flex-1">
                       <h2 className="text-lg font-bold text-slate-800">{selectedEtf.code} {selectedEtf.name}</h2>
-                      <span className="text-xs text-slate-500">配息明細 (近 {displayCount} 次)</span>
+                      <span className="text-xs text-slate-500">
+                          {isMonthly ? '近 12 次配息 (月配)' : '近 4 次配息 (季配)'}
+                      </span>
                   </div>
               </div>
               
@@ -150,7 +169,7 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="text-slate-500 text-xs border-b border-slate-200/50">
-                                <th className="py-2 px-4 font-medium">除息日</th>
+                                <th className="py-2 px-4 font-medium">除息日 (近 → 遠)</th>
                                 <th className="py-2 px-4 text-right font-medium">金額</th>
                                 <th className="py-2 px-4 text-right font-medium">狀態</th>
                             </tr>
@@ -180,6 +199,7 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
                   </div>
                   
                   <div className="mt-6 p-4 bg-white/60 rounded-lg text-xs text-slate-500 leading-relaxed border border-black/5">
+                      <p>※ 資料依日期由近至遠排序。</p>
                       <p>※ 紅色底色表示為系統判讀之「未來配息資料」或「預估值」。</p>
                   </div>
               </div>
@@ -232,8 +252,8 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
       <div className="flex-1 overflow-y-auto p-2 space-y-2 scrollbar-hide">
         {filteredEtfs.length > 0 ? (
             filteredEtfs.map((etf) => {
-                const hasFutureData = etf.dividends.some(d => isFutureDate(d.date));
-                const estYieldDisplay = hasFutureData && etf.estYield > 0 
+                // estYield logic handles in App.tsx (returns 0 if no future data)
+                const estYieldDisplay = etf.estYield > 0 
                     ? `${etf.estYield}%` 
                     : <span className="text-slate-300">-</span>;
 
@@ -241,9 +261,9 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
 
                 return (
                     <div key={etf.code} className={`rounded-lg p-2 shadow-sm border flex flex-col gap-0.5 ${cardStyle}`}>
-                        {/* 第 1 行: 股票代碼 (20px 粗) / 名稱 (18px 細 灰) */}
+                        {/* 第 1 行: 股票代碼 (20px 粗 藍色) / 名稱 (18px 細 灰色) */}
                         <div className="flex items-baseline gap-2 border-b border-black/5 pb-1 mb-0.5">
-                            <span className="text-[20px] font-bold text-slate-900">{etf.code}</span>
+                            <span className="text-[20px] font-bold text-blue-700">{etf.code}</span>
                             <span className="text-[18px] font-light text-slate-500 truncate flex-1 leading-tight">{etf.name}</span>
                             <span className={`text-[10px] px-1.5 py-0 rounded border bg-white/50 border-black/10 text-slate-500`}>
                                 {etf.marketLabel}
@@ -283,19 +303,19 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
                         </div>
 
                         {/* 第 3 行: 起始股價, 預估殖利率, 含息報酬, [按鈕: CircleAlert 詳細資料] */}
-                        {/* 標題 10px 細 / 內容 18px 粗 */}
+                        {/* 標題 10px 細 / 內容 18px 細字 (font-light) */}
                         <div className="grid grid-cols-4 items-center gap-1 bg-white/40 -mx-2 px-2 py-1 rounded-b-lg mt-0.5 leading-tight">
                             <div className="flex flex-col">
                                 <span className="text-[10px] font-light text-slate-600">起始股價</span>
-                                <span className="text-[18px] font-bold text-slate-900">{etf.priceBase}</span>
+                                <span className="text-[18px] font-light text-slate-900">{etf.priceBase}</span>
                             </div>
                             <div className="flex flex-col text-right">
                                 <span className="text-[10px] font-light text-slate-600">預估殖利率</span>
-                                <span className="text-[18px] font-bold text-slate-900">{estYieldDisplay}</span>
+                                <span className="text-[18px] font-light text-slate-900">{estYieldDisplay}</span>
                             </div>
                             <div className="flex flex-col text-right">
                                 <span className="text-[10px] font-light text-slate-600">含息報酬</span>
-                                <span className={`text-[18px] font-bold ${etf.totalReturn >= 0 ? 'text-red-700' : 'text-green-700'}`}>
+                                <span className={`text-[18px] font-light ${etf.totalReturn >= 0 ? 'text-red-700' : 'text-green-700'}`}>
                                     {etf.totalReturn}%
                                 </span>
                             </div>
