@@ -350,8 +350,20 @@ const App: React.FC = () => {
           };
       }));
   };
+  
+  // 3. 新增單筆交易 (從 PortfolioView)
+  const handleAddTransaction = (etfCode: string, newTx: Transaction) => {
+      setPortfolio(prev => prev.map(item => {
+          if (item.id !== etfCode) return item;
+          return {
+              ...item,
+              transactions: [newTx, ...item.transactions].sort((a,b) => b.date.localeCompare(a.date))
+          };
+      }));
+      showToast('已新增交易紀錄', 'success');
+  };
 
-  // 3. 刪除交易紀錄 (若刪到沒交易，則移除整個 ETF)
+  // 4. 刪除交易紀錄 (若刪到沒交易，則移除整個 ETF)
   const handleDeleteTransaction = (etfCode: string, txId: string) => {
       setPortfolio(prev => {
           return prev.map(item => {
@@ -376,6 +388,20 @@ const App: React.FC = () => {
     } finally {
         setIsDiagnosing(false);
     }
+  };
+
+  // --- Dynamic Header Title ---
+  const getHeaderTitle = () => {
+      if (!isConfigured) return '設定資料來源';
+      switch(activeTab) {
+          case 'performance': return '績效查詢';
+          case 'portfolio': return '自組月配';
+          case 'analysis': return '分析資料';
+          case 'planning': return '智慧規劃';
+          case 'diagnosis': return 'AI診斷';
+          case 'announcement': return '配息公告';
+          default: return '投資助理';
+      }
   };
 
   // --- Layout Components ---
@@ -418,11 +444,13 @@ const App: React.FC = () => {
           
           case 'portfolio': 
             return (
-                <div className="h-full p-4 overflow-y-auto scrollbar-hide">
+                // Use overflow-hidden to allow PortfolioView to manage scroll areas (Fixed Header / Scrollable Content)
+                <div className="h-full overflow-hidden">
                     <PortfolioView 
                         portfolio={portfolio} 
                         onUpdateTransaction={handleUpdateTransaction}
                         onDeleteTransaction={handleDeleteTransaction}
+                        onAddTransaction={handleAddTransaction}
                     />
                 </div>
             );
@@ -482,29 +510,33 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900 max-w-md mx-auto shadow-2xl overflow-hidden border-x border-slate-200 relative">
       
-      <header className="bg-blue-900 text-white h-20 shrink-0 flex items-center justify-between px-4 shadow-md z-20">
-        <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold tracking-wide">
-                {isConfigured ? '投資助理' : '設定資料來源'}
+      {/* 1. 標語區 (Header) - 固定不可滑動 */}
+      <header className="bg-blue-900 text-white h-20 shrink-0 flex items-center justify-between px-4 shadow-md z-20 relative">
+        <div className="absolute left-0 right-0 flex justify-center pointer-events-none">
+            <h1 className="text-xl font-bold tracking-wide pointer-events-auto">
+                {getHeaderTitle()}
             </h1>
         </div>
-        <div className="flex items-center gap-2">
+        
+        {/* Left Placeholder (if needed in future) */}
+        <div className="z-10"></div>
+
+        {/* Right Settings Button */}
+        <div className="flex items-center gap-2 z-10">
             {isConfigured && (
-                <>
-                    <button 
-                        onClick={handleReset}
-                        disabled={isLoading}
-                        className={`p-2 rounded-full hover:bg-blue-800 transition-all text-blue-100 hover:text-white ${isLoading ? 'opacity-50' : ''}`}
-                        title="設定資料來源"
-                    >
-                        <Settings className="w-6 h-6" />
-                    </button>
-                    <span className="text-sm bg-blue-800 px-2 py-1 rounded text-blue-200">測試版</span>
-                </>
+                <button 
+                    onClick={handleReset}
+                    disabled={isLoading}
+                    className={`p-2 rounded-full hover:bg-blue-800 transition-all text-blue-100 hover:text-white ${isLoading ? 'opacity-50' : ''}`}
+                    title="設定資料來源"
+                >
+                    <Settings className="w-6 h-6" />
+                </button>
             )}
         </div>
       </header>
 
+      {/* 2 & 3. 表單上部 與 內容區域 (由各 View 自行實作) */}
       <main className="flex-grow overflow-hidden bg-slate-50 relative">
         {renderContent()}
       </main>
@@ -533,6 +565,7 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* 4. 功能按鍵區 (Bottom Nav) - 固定不可滑動 */}
       {isConfigured && (
           <nav className="bg-blue-900 text-white h-20 shrink-0 grid grid-cols-6 items-center text-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-20">
             <button 
