@@ -8,7 +8,7 @@ import PortfolioView from './components/PortfolioView';
 import SheetConfigView from './components/SheetConfigView';
 import AnnouncementView from './components/AnnouncementView';
 import PlanningView from './components/PlanningView'; // Import the new view
-import { LayoutDashboard, PieChart, BrainCircuit, Bot, Megaphone, CheckCircle, AlertTriangle, Loader2, BarChart3, Settings, Key, CircleHelp, X, ExternalLink, ShieldCheck, Tag, Trash2, LogIn } from 'lucide-react';
+import { LayoutDashboard, PieChart, BrainCircuit, Bot, Megaphone, CheckCircle, AlertTriangle, Loader2, BarChart3, Settings, Key, CircleHelp, X, ExternalLink, ShieldCheck, Tag, Trash2, LogIn, Play, RefreshCcw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -562,6 +562,7 @@ const App: React.FC = () => {
                         etfs={etfs} 
                         hasKey={!!apiKey}
                         onOpenKeySettings={openKeyModal}
+                        onOpenHelp={() => setShowHelpModal(true)}
                     />
                 </div>
             );
@@ -569,15 +570,15 @@ const App: React.FC = () => {
           case 'diagnosis': 
             return (
                 <div className="h-full p-4 overflow-y-auto scrollbar-hide">
-                    {/* 使用與 PlanningView 一致的卡片樣式 */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 min-h-[400px]">
-                        <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                    {/* Control Card: 標題、金鑰設定、開始按鈕 */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6 shrink-0">
+                        <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
                             <div className="flex items-center gap-2">
                                 <Bot className="w-8 h-8 text-blue-600" />
                                 {/* 修改: 字體加大至 text-3xl */}
                                 <h3 className="text-3xl font-bold text-slate-800">AI 智能診斷</h3>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
                                 <button 
                                     onClick={openKeyModal}
                                     className={`p-2 rounded-full transition-all ${!apiKey ? 'bg-yellow-100 text-yellow-600 animate-pulse ring-2 ring-yellow-300' : 'text-slate-400 hover:bg-slate-100 hover:text-blue-600'}`}
@@ -586,16 +587,48 @@ const App: React.FC = () => {
                                     <Key className="w-5 h-5" />
                                 </button>
                                 <button 
-                                    onClick={handleAIDiagnosis}
-                                    disabled={isDiagnosing}
-                                    className="text-base bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-all"
+                                    onClick={() => setShowHelpModal(true)}
+                                    className="p-2 rounded-full text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-all"
+                                    title="說明文件"
                                 >
-                                    {isDiagnosing ? '診斷中...' : '開始診斷'}
+                                    <CircleHelp className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
-                        <div className="prose prose-slate max-w-none">
-                            {diagnosis ? (
+
+                        <div className="space-y-5">
+                            <p className="text-slate-600 leading-relaxed text-base">
+                                AI 將針對您的「自組月配」投資組合進行深度分析，提供產業分散性、收益均衡度與防禦能力的專業診斷建議。
+                            </p>
+
+                            <button
+                                onClick={handleAIDiagnosis}
+                                disabled={isDiagnosing}
+                                className={`w-full py-3.5 rounded-xl font-bold text-white shadow-md flex items-center justify-center gap-2 text-lg transition-all active:scale-[0.98] ${
+                                    isDiagnosing 
+                                        ? 'bg-blue-400 cursor-not-allowed' 
+                                        : 'bg-blue-600 hover:bg-blue-700'
+                                }`}
+                            >
+                                {isDiagnosing ? (
+                                    <>
+                                        <RefreshCcw className="w-5 h-5 animate-spin" />
+                                        診斷運算中...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Play className="w-5 h-5 fill-current" />
+                                        開始診斷
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Result Area */}
+                    {diagnosis && (
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 min-h-[200px] animate-[fadeIn_0.5s_ease-out] mb-6">
+                            <div className="prose prose-slate max-w-none">
                                 <ReactMarkdown 
                                     remarkPlugins={[remarkGfm]}
                                     components={{
@@ -626,14 +659,9 @@ const App: React.FC = () => {
                                 >
                                     {diagnosis}
                                 </ReactMarkdown>
-                            ) : (
-                                <div className="text-center py-12 text-slate-400">
-                                    <Bot className="w-16 h-16 mx-auto mb-4 text-slate-200" />
-                                    <p className="text-lg">點擊上方按鈕，讓 AI 分析您的投資組合數據。</p>
-                                </div>
-                            )}
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             );
 
@@ -663,13 +691,7 @@ const App: React.FC = () => {
             <h1 className="text-xl font-bold tracking-wide pointer-events-auto shadow-sm">{getHeaderTitle()}</h1>
         </div>
         <div className="flex items-center gap-3 z-10">
-            <button 
-               onClick={() => setShowHelpModal(true)}
-               className="p-2 rounded-full hover:bg-blue-800 transition-all text-blue-100 hover:text-white"
-               title="說明文件"
-            >
-                <CircleHelp className="w-6 h-6" />
-            </button>
+            <span className="text-[13px] font-bold text-yellow-300 tracking-wider border border-yellow-400/30 px-2 py-1 rounded bg-yellow-400/10">測試版</span>
             {isConfigured && (
                 <button 
                     onClick={handleReset}
@@ -692,40 +714,40 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
             <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
                 <div className="bg-blue-50 px-6 py-4 border-b border-blue-100 flex justify-between items-center">
-                    <h3 className="text-lg font-bold text-blue-900 flex items-center gap-2">
-                        <CircleHelp className="w-5 h-5" /> 關於 AI 助理
+                    <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
+                        <CircleHelp className="w-6 h-6" /> 關於 AI 助理
                     </h3>
-                    <button onClick={() => setShowHelpModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-6 h-6" /></button>
+                    <button onClick={() => setShowHelpModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-7 h-7" /></button>
                 </div>
                 <div className="p-6 overflow-y-auto space-y-6">
                     {/* Why Key? */}
-                    <div className="space-y-2">
-                        <h4 className="font-bold text-slate-800 flex items-center gap-2">
-                            <Key className="w-5 h-5 text-amber-500" /> 為什麼需要 API 金鑰？
+                    <div className="space-y-3">
+                        <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <Key className="w-6 h-6 text-amber-500" /> 為什麼需要 API 金鑰？
                         </h4>
-                        <p className="text-sm text-slate-600 leading-relaxed">
+                        <p className="text-base text-slate-600 leading-relaxed">
                             本 App 使用 Google Gemini 先進的語言模型來提供智慧規劃與診斷服務。就像使用 Google Maps 需要帳號一樣，AI 服務也需要一把「鑰匙」來通行。
                         </p>
                     </div>
 
                     {/* Cost & Security */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                            <h5 className="font-bold text-slate-800 text-sm mb-1 flex items-center gap-1"><Tag className="w-4 h-4 text-emerald-500" /> 費用說明</h5>
-                            <p className="text-xs text-slate-500 leading-snug">Google 提供非常大方的<strong>免費額度</strong>，個人使用通常完全免費。</p>
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <h5 className="font-bold text-slate-800 text-base mb-2 flex items-center gap-2"><Tag className="w-5 h-5 text-emerald-500" /> 費用說明</h5>
+                            <p className="text-base text-slate-600 leading-relaxed">Google 提供非常大方的<strong>免費額度</strong>，個人使用通常完全免費。</p>
                         </div>
-                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                            <h5 className="font-bold text-slate-800 text-sm mb-1 flex items-center gap-1"><ShieldCheck className="w-4 h-4 text-blue-500" /> 安全性</h5>
-                            <p className="text-xs text-slate-500 leading-snug">金鑰僅儲存在您的<strong>瀏覽器本地</strong> (Local Storage)，不會上傳至我們的主機。</p>
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <h5 className="font-bold text-slate-800 text-base mb-2 flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-blue-500" /> 安全性</h5>
+                            <p className="text-base text-slate-600 leading-relaxed">金鑰僅儲存在您的<strong>瀏覽器本地</strong> (Local Storage)，不會上傳至我們的主機。</p>
                         </div>
                     </div>
 
                     {/* Steps */}
-                    <div className="space-y-3">
-                        <h4 className="font-bold text-slate-800 flex items-center gap-2">
-                            <ExternalLink className="w-5 h-5 text-purple-500" /> 操作步驟
+                    <div className="space-y-4">
+                        <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <ExternalLink className="w-6 h-6 text-purple-500" /> 操作步驟
                         </h4>
-                        <ol className="text-sm text-slate-600 space-y-3 list-decimal pl-4">
+                        <ol className="text-base text-slate-600 space-y-3 list-decimal pl-5 leading-relaxed">
                             <li>點擊本 App 右上角的 <strong>金鑰設定</strong> 按鈕。</li>
                             <li>點擊視窗中的連結前往 <strong>Google AI Studio</strong>。</li>
                             <li>登入 Google 帳號後，點擊 <strong>Get API key</strong>。</li>
@@ -734,7 +756,7 @@ const App: React.FC = () => {
                     </div>
                 </div>
                 <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 text-center">
-                    <button onClick={() => setShowHelpModal(false)} className="w-full bg-blue-900 text-white py-3 rounded-xl font-bold shadow-sm hover:bg-blue-800">
+                    <button onClick={() => setShowHelpModal(false)} className="w-full bg-blue-900 text-white py-3.5 rounded-xl font-bold shadow-sm hover:bg-blue-800 text-lg">
                         我瞭解了
                     </button>
                 </div>

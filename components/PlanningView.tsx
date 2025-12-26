@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { EtfData } from '../types';
 import { generateSmartPlan } from '../services/geminiService';
-import { BrainCircuit, Mic, MicOff, Play, RefreshCcw, Coins, Key } from 'lucide-react';
+import { BrainCircuit, Mic, MicOff, Play, RefreshCcw, Coins, Key, CircleHelp } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -10,11 +10,12 @@ interface Props {
   etfs: EtfData[];
   hasKey: boolean;
   onOpenKeySettings: () => void;
+  onOpenHelp: () => void;
 }
 
 const DEFAULT_PROMPT = "股債配置 80 : 20 , 股票產業分散 ,季配型各季 * 1 , 月配 * 2 , 均衡股息收入";
 
-const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings }) => {
+const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings, onOpenHelp }) => {
   // Input State
   const [budget, setBudget] = useState<number>(500); // Unit: 萬
   const [prompt, setPrompt] = useState<string>(DEFAULT_PROMPT);
@@ -102,16 +103,24 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings }) => {
         <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
           <div className="flex items-center gap-2">
             <BrainCircuit className="w-8 h-8 text-blue-600" />
-            {/* 修改: 字體加大至 text-3xl */}
             <h2 className="text-3xl font-bold text-slate-800">AI 智慧規劃</h2>
           </div>
-          <button 
-             onClick={onOpenKeySettings}
-             className={`p-2 rounded-full transition-all ${!hasKey ? 'bg-yellow-100 text-yellow-600 animate-pulse ring-2 ring-yellow-300' : 'text-slate-400 hover:bg-slate-100 hover:text-blue-600'}`}
-             title={!hasKey ? "請設定 API Key" : "設定 API Key"}
-          >
-             <Key className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+             <button 
+                onClick={onOpenKeySettings}
+                className={`p-2 rounded-full transition-all ${!hasKey ? 'bg-yellow-100 text-yellow-600 animate-pulse ring-2 ring-yellow-300' : 'text-slate-400 hover:bg-slate-100 hover:text-blue-600'}`}
+                title={!hasKey ? "請設定 API Key" : "設定 API Key"}
+             >
+                <Key className="w-5 h-5" />
+             </button>
+             <button 
+                onClick={onOpenHelp}
+                className="p-2 rounded-full text-slate-400 hover:bg-slate-100 hover:text-blue-600 transition-all"
+                title="說明文件"
+             >
+                <CircleHelp className="w-5 h-5" />
+             </button>
+          </div>
         </div>
 
         <div className="space-y-5">
