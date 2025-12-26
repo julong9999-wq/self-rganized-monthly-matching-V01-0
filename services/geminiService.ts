@@ -1,10 +1,10 @@
 
 import { GoogleGenAI } from "@google/genai";
+import { PortfolioItem, EtfData } from "../types";
 
 // 安全獲取 API Key 的輔助函式
 const getSafeApiKey = (): string => {
   try {
-    // 使用 typeof 檢查避免 ReferenceError
     if (typeof process !== 'undefined' && process && process.env) {
       return process.env.API_KEY || '';
     }
@@ -14,69 +14,45 @@ const getSafeApiKey = (): string => {
   return '';
 };
 
+// 更新函式簽章以接收 PortfolioItem[]
 export const analyzeSheets = async (
-  sheet1Content: string, 
-  sheet2Content: string,
+  portfolio: PortfolioItem[],
   onStream: (text: string) => void
 ): Promise<void> => {
   const modelId = 'gemini-3-flash-preview'; 
-  const today = new Date().toLocaleDateString('zh-TW');
-
-  // 初始化 AI
   const apiKey = getSafeApiKey();
   const ai = new GoogleGenAI({ apiKey });
 
+  // 將 Portfolio 物件轉換為簡化的 JSON 字串供 AI 閱讀
+  const portfolioSummary = portfolio.map(item => ({
+      code: item.id,
+      name: item.etf.name,
+      category: item.etf.category,
+      totalCost: item.transactions.reduce((s, t) => s + t.totalAmount, 0),
+      currentPrice: item.etf.priceCurrent,
+      dividendYield: item.etf.dividendYield
+  }));
+
   const prompt = `
-    你現在是一個**高強度的金融數據稽核員**。
-    今天的日期是：${today}。
-    
-    【使用者核心提問】：**「00888 這 8 個數據都抓得到嗎？表單裡的 13 筆債券股價正確嗎？上櫃股票資料有顯示嗎？」**
-    
-    【重要提示】：使用者表示他**故意將日期前推或後推了一天 (非標準的 12/24)**，可能是 12/23 或 12/25。請在查核第 8 點時，接受這個範圍內的日期數據，只要有數據即視為成功。
+    你現在是一位專業的 ETF 投資組合顧問。
+    以下是使用者目前的「自組月配」投資組合清單：
+    ${JSON.stringify(portfolioSummary, null, 2)}
 
-    你的任務是盡全力去「抓取」並「驗證」，絕對不要造假。
+    請針對這份清單進行深入診斷。
 
-    **步驟一：日期鎖定**
-    請先推算下列 8 個時間點：
-    1. 2025/1/2
-    2. 上個月月初 (首交易日)
-    3. 上個月月底 (末交易日)
-    4. 本月月初 (首交易日)
-    5. 上週 (首交易日)
-    6. 上週 (末交易日)
-    7. 本週 (首交易日)
-    8. **前一交易日 (T-1)**：請檢查 2025/12/23 ~ 2025/12/25 這幾天的數據。
+    **輸出格式規定 (非常重要)：**
+    1. 請務必使用 **標準 Markdown 表格** 格式。
+    2. 表格前後請留空行。
+    3. 表格內容請精簡扼要，避免長篇大論，方便手機閱讀。
 
-    **步驟二：標的識別與搜尋 (Grounding)**
-    請分析【表單 2】：
-    1. **鎖定 00888 (上市)**：務必搜尋它在上述時間點的收盤價。
-    2. **識別債券 ETF (上櫃 TPEx)**：請找出約 13 檔債券 ETF。
-       *   **關鍵檢查**：確認介面或數據中是否標示為「上櫃 (OTC/TPEx)」。
-    3. **執行搜尋**：針對找到的這些債券，查核數據完整性。
+    **請輸出一個表格，包含以下三個欄位：**
+    | 診斷面向 | 分析結果 (簡述) | 優化建議 (具體行動) |
+    |---|---|---|
+    | **產業分散** | (分析是否過度集中特定產業) | (具體建議) |
+    | **收益均衡** | (分析是否達成月月配、有無空窗) | (具體建議) |
+    | **防禦能力** | (分析抗跌能力、債券配置) | (具體建議) |
 
-    **步驟三：輸出報告**
-    請產出詳細的 Markdown 報告。
-
-    **表格 A：日期推算表**
-    列出你算出的 8 個具體日期。
-
-    **表格 B：00888 與債券查價結果 (重點報告)**
-    格式範例：
-    | 股票代號 | 市場 | 股票名稱 | 成功抓取數 (x/8) | 2025/1/2 | ... | T-1 (近日) | 狀態 |
-    |---|---|---|---|---|---|---|---|
-    | 00888 | 上市 | 國泰永續高股息 | 8/8 | 23.5 | ... | 23.8 | ✅ 完整 |
-    | 00679B | 上櫃 | 元大美債20年 | 7/8 | 29.1 | ... | 29.5 | ⚠️ 缺 1 筆 |
-    
-    **總結**：
-    直接回答：「00888 能抓到嗎？」、「13 筆債券能抓到嗎？」、「上櫃資料是否正確標示？」。
-    
-    ---
-    【表單 1 (配息資訊)】:
-    ${sheet1Content.substring(0, 30000)} ...
-
-    ---
-    【表單 2 (庫存/股價)】:
-    ${sheet2Content.substring(0, 50000)} ...
+    表格下方請再給一段 **總結建議** (100字以內)，用條列式呈現。
   `;
 
   try {
@@ -84,8 +60,6 @@ export const analyzeSheets = async (
       model: modelId,
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: {
-        // Critical: Google Search allows finding historical stock prices
-        tools: [{ googleSearch: {} }],
         thinkingConfig: { thinkingBudget: 0 }
       }
     });
@@ -97,6 +71,82 @@ export const analyzeSheets = async (
     }
   } catch (error) {
     console.error("Gemini Analysis Error:", error);
+    throw error;
+  }
+};
+
+// 新增：智慧規劃功能
+export const generateSmartPlan = async (
+  etfs: EtfData[],
+  budgetWan: number,
+  userRequest: string,
+  onStream: (text: string) => void
+): Promise<void> => {
+  const modelId = 'gemini-3-flash-preview';
+  const apiKey = getSafeApiKey();
+  const ai = new GoogleGenAI({ apiKey });
+
+  const totalBudget = budgetWan * 10000;
+
+  // 簡化 ETF 資料，減少 Token 使用並聚焦重點
+  const etfSummary = etfs.map(e => ({
+    code: e.code,
+    name: e.name,
+    category: e.category,
+    price: e.priceCurrent,
+    yield: e.dividendYield,
+    estYield: e.estYield,
+    type: e.category === 'AE' ? '債券' : (e.category === 'AD' ? '股票(月配)' : '股票(季配)')
+  }));
+
+  const prompt = `
+    你是一位專業的投資理財顧問。
+    使用者想要進行 ETF 投資規劃。
+
+    **投資參數：**
+    1. 總預算：${totalBudget.toLocaleString()} 台幣 (TWD)
+    2. 使用者需求描述：${userRequest}
+
+    **可用 ETF 清單 (只能從這裡選擇)：**
+    ${JSON.stringify(etfSummary)}
+
+    **任務：**
+    請根據使用者的預算與需求，從「可用 ETF 清單」中挑選適合的標的，建立一個投資組合。
+    
+    **計算規則：**
+    1. 請精確計算每檔 ETF 的購買「股數」與「預估成本」。
+    2. 股數建議以 1000 股 (一張) 為單位，若預算不足可配零股，但盡量以整張為主。
+    3. 總成本不能超過總預算。
+    4. 必須嚴格遵守使用者對於「股債比」、「配息頻率(季配/月配)」的要求。
+
+    **輸出格式 (必須是 Markdown 表格)：**
+    請直接輸出表格。表格欄位如下：
+    | 代號 | 名稱 | 類型 | 建議股數 | 預估成本 | 預估殖利率 | 推薦理由 |
+    |---|---|---|---|---|---|---|
+    | ... | ... | ... | ... | ... | ... | ... |
+    
+    **表格後方補充：**
+    1. **預估總成本**：$xxx
+    2. **預估年領股息**：$xxx
+    3. **配置分析**：簡短說明此配置如何滿足使用者的需求 (例如股債比是否達標)。
+  `;
+
+  try {
+    const response = await ai.models.generateContentStream({
+      model: modelId,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        thinkingConfig: { thinkingBudget: 0 }
+      }
+    });
+
+    for await (const chunk of response) {
+      if (chunk.text) {
+        onStream(chunk.text);
+      }
+    }
+  } catch (error) {
+    console.error("Gemini Planning Error:", error);
     throw error;
   }
 };

@@ -1,5 +1,7 @@
 {
   "name": "自組月月配投資助理-測試版 ",
   "description": "A Proof of Concept tool to demonstrate how Gemini can read and analyze specific Google Sheet published data.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }
