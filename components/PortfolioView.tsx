@@ -197,9 +197,6 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
         });
 
         // 收集 "資產增值明細" 數據 (新增)
-        // 預估一年損益 = 總成本 * (報酬率 / 100)
-        // 這裡我們假設「目前的報酬率趨勢」可以作為未來一年的參考 (或者您希望用殖利率+報酬率?)
-        // 依據提示「增值或減資」，我們使用 returnRate (價格報酬) 來估算資本利得
         const estimatedGainLoss = itemTotalCost * (item.etf.returnRate / 100);
         assetGrowthList.push({
             id: item.id,
@@ -238,7 +235,6 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
     const minY = Math.min(...allValues) * 0.95;
     const estimatedAnnualIncome = monthlyDividends.reduce((a, b) => a + b, 0);
 
-    // 計算總預估資產增減
     const totalEstimatedAssetGain = assetGrowthList.reduce((sum, item) => sum + item.estimatedGainLoss, 0);
 
     return { 
@@ -252,9 +248,9 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
         finalProjectedValue: totalAssetLine[11], 
         portfolioAvgReturnRate, 
         currentMarketValue,
-        breakdownList, // 股息明細
-        assetGrowthList, // 資產增值明細
-        totalEstimatedAssetGain // 總預估增值
+        breakdownList, 
+        assetGrowthList, 
+        totalEstimatedAssetGain
     };
   }, [portfolio, grandTotalCost]);
 
@@ -341,7 +337,36 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                             {/* 子表: 交易明細 */}
                             {isExpanded && (
                                 <div className="border-t border-black/5 bg-white/60 p-2 rounded-b-lg">
-                                    {/* ... Transaction Table (omitted for brevity) ... */}
+                                    {/* Add Form (Recovered) */}
+                                    {addingToId === item.id && addForm && (
+                                        <div className="bg-white rounded p-2 mb-2 border border-blue-200 shadow-sm">
+                                            <div className="text-xs font-bold text-blue-800 mb-1">新增交易</div>
+                                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                                <div className="flex flex-col">
+                                                    <label className="text-[12px] font-light text-slate-500">日期</label>
+                                                    <input value={addForm.date} onChange={(e) => handleAddChange('date', e.target.value)} className="border rounded px-2 py-1 text-[16px] font-bold text-slate-800" placeholder="YYYY/MM/DD" />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                     <label className="text-[12px] font-light text-slate-500">張數</label>
+                                                     <input type="number" value={addForm.shares} onChange={(e) => handleAddChange('shares', e.target.value)} className="border rounded px-2 py-1 text-[16px] font-bold text-slate-800 text-right" />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                     <label className="text-[12px] font-light text-slate-500">單價</label>
+                                                     <input type="number" value={addForm.price} onChange={(e) => handleAddChange('price', e.target.value)} className="border rounded px-2 py-1 text-[16px] font-bold text-slate-800 text-right" />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                     <label className="text-[12px] font-light text-slate-500">成交總價</label>
+                                                     <input type="number" value={addForm.totalAmount} onChange={(e) => handleAddChange('totalAmount', e.target.value)} className="border rounded px-2 py-1 text-[16px] font-bold text-slate-800 text-right" />
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 justify-end">
+                                                <button onClick={cancelAdd} className="px-3 py-1 text-sm bg-slate-100 rounded text-slate-600">取消</button>
+                                                <button onClick={() => saveAdd(item.id)} className="px-3 py-1 text-sm bg-blue-600 text-white rounded">儲存</button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Transaction Table */}
                                     <table className="w-full text-left">
                                         <thead>
                                             <tr className="border-b border-black/5 text-[12px] font-light text-slate-500">
@@ -352,25 +377,72 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {item.transactions.map((tx) => (
-                                                <tr key={tx.id} className="border-b border-black/5 last:border-0 hover:bg-black/5 transition-colors">
-                                                    <td className="py-2 text-[14px] font-bold text-slate-700">{tx.date}</td>
-                                                    <td className="py-2 text-right">
-                                                        <div className="flex flex-col items-end">
-                                                            <span className="text-[16px] font-bold text-slate-900 leading-none">{tx.shares}</span>
-                                                            <span className="text-[12px] font-light text-slate-400 mt-0.5">@{tx.price}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-2 text-right text-[16px] font-bold text-slate-900">
-                                                        ${Math.round(tx.totalAmount).toLocaleString()}
-                                                    </td>
-                                                    <td className="py-2 text-right">
-                                                        <div className="flex justify-end gap-1">
-                                                            <button onClick={(e)=>{e.stopPropagation(); handleDeleteClick(item.id, tx.id);}} className="p-1.5 bg-slate-100 rounded text-red-400 hover:bg-red-100 transition-colors"><Trash2 className="w-4 h-4"/></button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {item.transactions.map((tx) => {
+                                                // 編輯模式 (Recovered)
+                                                if (editingTxId === tx.id && editForm) {
+                                                    return (
+                                                        <tr key={tx.id} className="bg-blue-50/50">
+                                                            <td colSpan={4} className="py-2">
+                                                                <div className="p-2 border border-blue-200 rounded-lg bg-white shadow-sm flex flex-col gap-2">
+                                                                    <div className="flex justify-between items-center border-b border-blue-100 pb-1 mb-1">
+                                                                        <span className="text-xs font-bold text-blue-800">編輯交易</span>
+                                                                        <button onClick={cancelEdit}><X className="w-4 h-4 text-slate-400"/></button>
+                                                                    </div>
+                                                                    <div className="grid grid-cols-2 gap-3">
+                                                                        <div className="flex flex-col">
+                                                                            <label className="text-[12px] font-light text-slate-500 mb-0.5">日期</label>
+                                                                            <input value={editForm.date} onChange={(e) => handleEditChange('date', e.target.value)} className="w-full border rounded px-2 py-1.5 text-[16px] font-bold text-slate-800 bg-slate-50 focus:bg-white outline-none" />
+                                                                        </div>
+                                                                        <div className="flex flex-col">
+                                                                            <label className="text-[12px] font-light text-slate-500 mb-0.5 text-right">張數</label>
+                                                                            <input type="number" value={editForm.shares} onChange={(e) => handleEditChange('shares', e.target.value)} className="w-full border rounded px-2 py-1.5 text-[16px] font-bold text-slate-800 text-right bg-slate-50 focus:bg-white outline-none" />
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="grid grid-cols-2 gap-3">
+                                                                         <div className="flex flex-col">
+                                                                            <label className="text-[12px] font-light text-slate-500 mb-0.5">單價</label>
+                                                                            <input type="number" value={editForm.price} onChange={(e) => handleEditChange('price', e.target.value)} className="w-full border rounded px-2 py-1.5 text-[16px] font-bold text-slate-800 bg-slate-50 focus:bg-white outline-none" />
+                                                                        </div>
+                                                                        <div className="flex flex-col">
+                                                                            <label className="text-[12px] font-light text-slate-500 mb-0.5 text-right">成交總價</label>
+                                                                            <input type="number" value={editForm.totalAmount} onChange={(e) => handleEditChange('totalAmount', e.target.value)} className="w-full border rounded px-2 py-1.5 text-[16px] font-bold text-slate-800 text-right bg-slate-50 focus:bg-white outline-none" />
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex justify-end pt-2 border-t border-slate-100 mt-1">
+                                                                        <button onClick={() => saveEdit(item.id)} className="flex items-center gap-1 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 active:scale-95 transition-all">
+                                                                            <Save className="w-4 h-4" />
+                                                                            <span className="text-sm font-bold">儲存修改</span>
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                }
+
+                                                // 顯示模式
+                                                return (
+                                                    <tr key={tx.id} className="border-b border-black/5 last:border-0 hover:bg-black/5 transition-colors">
+                                                        <td className="py-2 text-[14px] font-bold text-slate-700">{tx.date}</td>
+                                                        <td className="py-2 text-right">
+                                                            <div className="flex flex-col items-end">
+                                                                <span className="text-[16px] font-bold text-slate-900 leading-none">{tx.shares}</span>
+                                                                <span className="text-[12px] font-light text-slate-400 mt-0.5">@{tx.price}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-2 text-right text-[16px] font-bold text-slate-900">
+                                                            ${Math.round(tx.totalAmount).toLocaleString()}
+                                                        </td>
+                                                        <td className="py-2 text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                {/* Edit Button Restored */}
+                                                                <button onClick={(e)=>{e.stopPropagation(); startEdit(tx);}} className="p-1.5 bg-slate-100 rounded text-blue-600 hover:bg-blue-100 transition-colors"><Edit3 className="w-4 h-4"/></button>
+                                                                <button onClick={(e)=>{e.stopPropagation(); handleDeleteClick(item.id, tx.id);}} className="p-1.5 bg-slate-100 rounded text-red-400 hover:bg-red-100 transition-colors"><Trash2 className="w-4 h-4"/></button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
