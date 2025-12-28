@@ -41,6 +41,7 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings, onOpen
 
   // 清除文字功能
   const handleClearPrompt = () => {
+      if (!prompt) return;
       if (window.confirm("確定要清除目前的規劃需求文字嗎？")) {
           setPrompt("");
       }
@@ -89,9 +90,10 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings, onOpen
                     const cleanPrev = prev.trim();
                     // 如果原本沒字，直接取代；有字則加逗號
                     if (!cleanPrev) return transcript;
-                    // 簡單判斷結尾是否有標點
+                    
+                    // 簡單判斷結尾是否有標點，決定是否加逗號
                     const lastChar = cleanPrev.slice(-1);
-                    if ([',', '，', '.', '。', ' '].includes(lastChar)) {
+                    if ([',', '，', '.', '。', ' ', '\n'].includes(lastChar)) {
                         return `${cleanPrev}${transcript}`;
                     }
                     return `${cleanPrev}，${transcript}`;
@@ -205,7 +207,12 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings, onOpen
           <div>
             <div className="flex justify-between items-end mb-2">
                 <label className="text-sm font-bold text-slate-600">規劃需求 (Prompt)</label>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                    {/* 語音狀態提示 */}
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded transition-colors ${isListening ? 'text-white bg-red-500 animate-pulse' : 'text-slate-400'}`}>
+                        {isListening ? '正在聆聽...' : ''}
+                    </span>
+                    
                     {/* 清除按鈕 */}
                     <button 
                         onClick={handleClearPrompt}
@@ -214,10 +221,6 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings, onOpen
                     >
                         <Eraser className="w-3 h-3" /> 清除
                     </button>
-                    {/* 語音提示 */}
-                    <span className={`text-xs font-normal px-2 py-1 rounded-full transition-colors ${isListening ? 'text-white bg-red-500 animate-pulse' : 'text-blue-600 bg-blue-50'}`}>
-                        {isListening ? '正在聆聽...' : '可語音輸入'}
-                    </span>
                 </div>
             </div>
             
@@ -226,7 +229,7 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings, onOpen
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 className="w-full p-4 pr-12 bg-slate-50 border border-slate-300 rounded-xl text-base text-slate-700 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all min-h-[120px] resize-none leading-relaxed"
-                placeholder="請輸入您的投資策略..."
+                placeholder="請輸入您的投資策略，或點擊麥克風語音輸入..."
               />
               {/* 語音按鈕 (放在輸入框內右下角) */}
               <button
