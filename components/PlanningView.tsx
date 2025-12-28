@@ -1,8 +1,8 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { EtfData } from '../types';
 import { generateSmartPlan } from '../services/geminiService';
-import { BrainCircuit, Mic, MicOff, Play, RefreshCcw, Coins, Key, CircleHelp } from 'lucide-react';
+import { BrainCircuit, Mic, MicOff, Play, RefreshCcw, Coins, Key, CircleHelp, Eraser } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -25,96 +25,106 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings, onOpen
   const [isGenerating, setIsGenerating] = useState(false);
   const [result, setResult] = useState<string>("");
   
-  // Refs
-  const recognitionRef = useRef<any>(null);
+  // Refs (用來儲存當前的辨識物件，方便中斷)
+  const recognitionInstance = useRef<any>(null);
 
-  // 清理資源
+  // Component Unmount 時確保停止錄音
   useEffect(() => {
     return () => {
-      if (recognitionRef.current) {
+      if (recognitionInstance.current) {
         try {
-            recognitionRef.current.stop();
+            recognitionInstance.current.stop();
         } catch(e) {}
       }
     };
   }, []);
 
+  // 清除文字功能
+  const handleClearPrompt = () => {
+      if (window.confirm("確定要清除目前的規劃需求文字嗎？")) {
+          setPrompt("");
+      }
+  };
+
   const toggleListening = () => {
-    // 1. Check Browser Support
+    // 1. 停止目前的錄音 (如果正在錄)
+    if (isListening) {
+        if (recognitionInstance.current) {
+            try {
+                recognitionInstance.current.stop();
+            } catch (e) {
+                console.warn("Stop failed", e);
+            }
+        }
+        setIsListening(false);
+        return;
+    }
+
+    // 2. 檢查瀏覽器支援
     if (typeof window === 'undefined') return;
     
+    // 擴充型別定義以支援不同瀏覽器前綴
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
     if (!SpeechRecognition) {
       alert("您的瀏覽器不支援語音輸入功能 (Web Speech API)，請嘗試使用 Chrome, Safari 或 Edge 瀏覽器。");
       return;
     }
 
-    // 2. Initialize if not exists (Lazy Initialization for iOS Safari support)
-    if (!recognitionRef.current) {
-        try {
-            const recognition = new SpeechRecognition();
-            recognition.continuous = false; // 手機上 false 比較穩定
-            recognition.lang = 'zh-TW';
-            recognition.interimResults = false;
+    // 3. 建立新的辨識實例 (每次重新建立比較穩定)
+    try {
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'zh-TW'; // 設定語言為繁體中文
+        recognition.continuous = false; // 手機上 false 比較穩定，講完一句自動停止
+        recognition.interimResults = false; // 不顯示過程，只顯示結果
+        
+        recognition.onstart = () => {
+            setIsListening(true);
+        };
 
-            recognition.onstart = () => {
-                setIsListening(true);
-            };
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            if (transcript) {
+                setPrompt(prev => {
+                    const cleanPrev = prev.trim();
+                    // 如果原本沒字，直接取代；有字則加逗號
+                    if (!cleanPrev) return transcript;
+                    // 簡單判斷結尾是否有標點
+                    const lastChar = cleanPrev.slice(-1);
+                    if ([',', '，', '.', '。', ' '].includes(lastChar)) {
+                        return `${cleanPrev}${transcript}`;
+                    }
+                    return `${cleanPrev}，${transcript}`;
+                });
+            }
+        };
 
-            recognition.onresult = (event: any) => {
-                const transcript = event.results[0][0].transcript;
-                if (transcript) {
-                    setPrompt(prev => {
-                        const cleanPrev = prev.trim();
-                        if (!cleanPrev) return transcript;
-                        if (cleanPrev.endsWith(',') || cleanPrev.endsWith('，')) return `${cleanPrev} ${transcript}`;
-                        return `${cleanPrev}，${transcript}`;
-                    });
-                }
-                setIsListening(false);
-            };
+        recognition.onerror = (event: any) => {
+            console.error("Speech recognition error", event.error);
+            setIsListening(false);
+            if (event.error === 'not-allowed') {
+                alert("請允許麥克風權限以使用語音輸入。");
+            } else if (event.error === 'no-speech') {
+                // 沒講話自動停止，不需報錯
+            } else {
+                // 其他錯誤
+                // alert("語音辨識發生錯誤: " + event.error);
+            }
+        };
 
-            recognition.onerror = (event: any) => {
-                console.error("Speech recognition error", event.error);
-                setIsListening(false);
-                if (event.error === 'not-allowed') {
-                    alert("請允許麥克風權限以使用語音輸入。");
-                }
-            };
+        recognition.onend = () => {
+            setIsListening(false);
+            recognitionInstance.current = null;
+        };
 
-            recognition.onend = () => {
-                setIsListening(false);
-            };
+        // 儲存實例並開始
+        recognitionInstance.current = recognition;
+        recognition.start();
 
-            recognitionRef.current = recognition;
-        } catch (e) {
-            console.error("Failed to initialize speech recognition", e);
-            alert("語音功能初始化失敗");
-            return;
-        }
-    }
-
-    // 3. Start or Stop
-    if (isListening) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {
-        console.warn("Stop failed", e);
+    } catch (e) {
+        console.error("Failed to initialize speech recognition", e);
+        alert("語音功能初始化失敗，請重新整理頁面再試。");
         setIsListening(false);
-      }
-    } else {
-      try {
-        recognitionRef.current.start();
-      } catch (e) {
-        console.warn("Start failed (maybe already started)", e);
-        // 如果已經開始，嘗試重置
-        try {
-             recognitionRef.current.stop();
-             setTimeout(() => {
-                 try { recognitionRef.current.start(); } catch(err) {}
-             }, 100);
-        } catch(err) {}
-      }
     }
   };
 
@@ -193,12 +203,24 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings, onOpen
 
           {/* Prompt Input */}
           <div>
-            <label className="block text-sm font-bold text-slate-600 mb-2 flex justify-between items-center">
-              <span>規劃提示詞 (Prompt)</span>
-              <span className="text-xs font-normal text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                可語音輸入
-              </span>
-            </label>
+            <div className="flex justify-between items-end mb-2">
+                <label className="text-sm font-bold text-slate-600">規劃需求 (Prompt)</label>
+                <div className="flex gap-2">
+                    {/* 清除按鈕 */}
+                    <button 
+                        onClick={handleClearPrompt}
+                        className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 px-2 py-1 rounded-full transition-colors"
+                        title="清除內容"
+                    >
+                        <Eraser className="w-3 h-3" /> 清除
+                    </button>
+                    {/* 語音提示 */}
+                    <span className={`text-xs font-normal px-2 py-1 rounded-full transition-colors ${isListening ? 'text-white bg-red-500 animate-pulse' : 'text-blue-600 bg-blue-50'}`}>
+                        {isListening ? '正在聆聽...' : '可語音輸入'}
+                    </span>
+                </div>
+            </div>
+            
             <div className="relative">
               <textarea
                 value={prompt}
@@ -206,11 +228,12 @@ const PlanningView: React.FC<Props> = ({ etfs, hasKey, onOpenKeySettings, onOpen
                 className="w-full p-4 pr-12 bg-slate-50 border border-slate-300 rounded-xl text-base text-slate-700 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all min-h-[120px] resize-none leading-relaxed"
                 placeholder="請輸入您的投資策略..."
               />
+              {/* 語音按鈕 (放在輸入框內右下角) */}
               <button
                 onClick={toggleListening}
-                className={`absolute right-3 bottom-3 p-2 rounded-full transition-all shadow-sm flex items-center justify-center ${
+                className={`absolute right-3 bottom-3 p-3 rounded-full transition-all shadow-sm flex items-center justify-center ${
                   isListening 
-                    ? 'bg-red-500 text-white animate-pulse ring-2 ring-red-300' 
+                    ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200 scale-110' 
                     : 'bg-white text-slate-400 border border-slate-200 hover:text-blue-600 hover:border-blue-200'
                 }`}
                 title="語音輸入"

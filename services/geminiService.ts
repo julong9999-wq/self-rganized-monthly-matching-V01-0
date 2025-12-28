@@ -30,7 +30,7 @@ const MISSING_KEY_MSG = `
 
 *   **免費使用**：Google 提供充足的免費額度。
 *   **隱私安全**：您的金鑰僅儲存在您的瀏覽器中，不會上傳至其他伺服器。
-*   **立即申請**：[前往 Google AI Studio 取得免費金鑰](https://aistudio.google.com/app/apikey)
+*   **設定簡單**：點擊圖示後有完整教學。
 `;
 
 // 更新函式簽章以接收 PortfolioItem[]
