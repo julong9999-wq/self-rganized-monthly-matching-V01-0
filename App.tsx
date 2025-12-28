@@ -652,6 +652,8 @@ const App: React.FC = () => {
                                         h2: ({node, ...props}) => <h2 className="text-xl font-bold text-slate-800 mt-5 mb-3 border-b pb-1 border-slate-100" {...props} />,
                                         // H3 改為卡片式標籤
                                         h3: ({node, ...props}) => <h3 className="text-xl font-bold text-white bg-blue-600 px-4 py-2 rounded-lg mt-6 mb-3 shadow-sm inline-block" {...props} />,
+                                        // 連結樣式 (新增)
+                                        a: ({node, ...props}) => <a className="text-blue-600 underline font-bold hover:text-blue-800" target="_blank" rel="noopener noreferrer" {...props} />,
                                     }}
                                 >
                                     {diagnosis}
@@ -749,7 +751,11 @@ const App: React.FC = () => {
                         </h4>
                         <ol className="text-base text-slate-600 space-y-3 list-decimal pl-5 leading-relaxed">
                             <li>點擊本 App 右上角的 <strong>金鑰設定</strong> 按鈕。</li>
-                            <li>點擊視窗中的連結前往 <strong>Google AI Studio</strong>。</li>
+                            <li>
+                                前往 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-bold inline-flex items-center gap-1">
+                                    Google AI Studio <ExternalLink className="w-3 h-3" />
+                                </a> 申請金鑰。
+                            </li>
                             <li>登入 Google 帳號後，點擊 <strong>Get API key</strong>。</li>
                             <li>複製金鑰 (以 AIza 開頭的字串) 並貼回本 App 即可。</li>
                         </ol>
