@@ -174,19 +174,20 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
     <div className="flex flex-col h-full bg-slate-50">
       
       {/* A1: Statistics - Ultra Compact */}
+      {/* 樣式更新: 標語細字 14px, 內容粗字 18px */}
       <div className="bg-white shadow-sm border-b border-slate-200 p-2 shrink-0 z-20">
           <div className="grid grid-cols-3 gap-1 text-center">
               <div className="flex flex-col items-center">
-                  <span className="text-[10px] font-light text-slate-500">投資總額</span>
-                  <span className="text-[16px] font-bold text-slate-800">${grandTotalCost.toLocaleString()}</span>
+                  <span className="text-[14px] font-light text-slate-500">投資總額</span>
+                  <span className="text-[18px] font-bold text-slate-800">${grandTotalCost.toLocaleString()}</span>
               </div>
               <div className="flex flex-col items-center border-l border-slate-100">
-                  <span className="text-[10px] font-light text-slate-500">預估年息</span>
-                  <span className="text-[16px] font-bold text-yellow-600">${Math.round(analysisData.estimatedAnnualIncome).toLocaleString()}</span>
+                  <span className="text-[14px] font-light text-slate-500">預估年息</span>
+                  <span className="text-[18px] font-bold text-yellow-600">${Math.round(analysisData.estimatedAnnualIncome).toLocaleString()}</span>
               </div>
               <div className="flex flex-col items-center border-l border-slate-100">
-                  <span className="text-[10px] font-light text-slate-500">投資檔數</span>
-                  <span className="text-[16px] font-bold text-slate-800">{holdingsCount}</span>
+                  <span className="text-[14px] font-light text-slate-500">投資檔數</span>
+                  <span className="text-[18px] font-bold text-slate-800">{holdingsCount}</span>
               </div>
           </div>
       </div>
@@ -206,23 +207,40 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                     return (
                         <div key={item.id} className={`rounded-lg shadow-sm border ${style} ${isExpanded ? 'ring-1 ring-blue-200' : ''}`}>
                             <div onClick={() => toggleExpand(item.id)} className="p-2 flex flex-col gap-1 cursor-pointer">
+                                {/* 第一行: 股票代碼 (20px 粗 藍) / 股票名稱 (18px 細 灰) */}
                                 <div className="flex justify-between items-center border-b border-black/5 pb-1">
                                     <div className="flex items-baseline gap-2 overflow-hidden flex-1">
-                                        <span className="text-[16px] font-bold text-blue-900">{item.id}</span>
-                                        <span className="text-[14px] font-light text-slate-600 truncate">{item.etf.name}</span>
+                                        <span className="text-[20px] font-bold text-blue-900">{item.id}</span>
+                                        <span className="text-[18px] font-light text-slate-500 truncate">{item.etf.name}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button onClick={(e) => { e.stopPropagation(); startAdd(item); }} className="w-6 h-6 flex justify-center items-center rounded-full bg-white text-blue-800 border border-blue-100 shadow-sm"><Plus className="w-4 h-4" /></button>
                                         <div className="text-slate-400">{isExpanded ? <ChevronUp className="w-4 h-4"/> : <ChevronDown className="w-4 h-4"/>}</div>
                                     </div>
                                 </div>
+                                
+                                {/* 第二行: 數據欄位 - 標語細字 12px, 內容粗字 16px */}
                                 <div className="grid grid-cols-4 gap-1">
-                                    <div className="text-center"><div className="text-[10px] text-slate-500 font-light">累計張數</div><div className="text-[14px] font-bold text-slate-800">{totalShares.toLocaleString()}</div></div>
-                                    <div className="text-center"><div className="text-[10px] text-slate-500 font-light">平均成本</div><div className="text-[14px] font-bold text-slate-800">{avgCost}</div></div>
-                                    <div className="text-center"><div className="text-[10px] text-slate-500 font-light">殖利率</div><div className="text-[14px] font-bold text-slate-800">{item.etf.dividendYield}%</div></div>
-                                    <div className="text-center"><div className="text-[10px] text-slate-500 font-light">總計</div><div className="text-[14px] font-bold text-slate-800">${Math.round(totalCost).toLocaleString()}</div></div>
+                                    <div className="text-center">
+                                        <div className="text-[12px] text-slate-500 font-light">累計張數</div>
+                                        <div className="text-[16px] font-bold text-slate-800">{totalShares.toLocaleString()}</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-[12px] text-slate-500 font-light">平均成本</div>
+                                        <div className="text-[16px] font-bold text-slate-800">{avgCost}</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-[12px] text-slate-500 font-light">殖利率</div>
+                                        <div className="text-[16px] font-bold text-slate-800">{item.etf.dividendYield}%</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-[12px] text-slate-500 font-light">總計</div>
+                                        <div className="text-[16px] font-bold text-slate-800">${Math.round(totalCost).toLocaleString()}</div>
+                                    </div>
                                 </div>
                             </div>
+
+                            {/* 子表: 交易明細 */}
                             {isExpanded && (
                                 <div className="border-t border-black/5 bg-white/60 p-2 rounded-b-lg">
                                     {addingToId === item.id && addForm && (
@@ -237,15 +255,33 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                             <div className="flex gap-2 justify-end"><button onClick={cancelAdd} className="px-2 py-1 text-xs bg-slate-100 rounded">取消</button><button onClick={() => saveAdd(item.id)} className="px-2 py-1 text-xs bg-blue-600 text-white rounded">儲存</button></div>
                                         </div>
                                     )}
-                                    <table className="w-full text-left text-xs">
+                                    <table className="w-full text-left">
+                                        {/* 子表標頭: 細字 12px */}
+                                        <thead>
+                                            <tr className="border-b border-black/5 text-[12px] font-light text-slate-500">
+                                                <th className="py-1 font-light">日期</th>
+                                                <th className="py-1 text-right font-light">張數 / 單價</th>
+                                                <th className="py-1 text-right font-light">成交總價</th>
+                                                <th className="py-1 text-right font-light">操作</th>
+                                            </tr>
+                                        </thead>
+                                        {/* 子表內容: 正常 14px */}
                                         <tbody>
                                             {item.transactions.map((tx) => (
-                                                <tr key={tx.id} className="border-b border-black/5 last:border-0">
-                                                    <td className="py-1">{tx.date}</td>
-                                                    <td className="py-1 text-right">{tx.shares}股 @ {tx.price}</td>
-                                                    <td className="py-1 text-right">${tx.totalAmount.toLocaleString()}</td>
-                                                    <td className="py-1 text-right">
-                                                        <div className="flex justify-end gap-1"><button onClick={(e)=>{e.stopPropagation(); startEdit(tx);}}><Edit3 className="w-3 h-3 text-blue-400"/></button><button onClick={(e)=>{e.stopPropagation(); handleDeleteClick(item.id, tx.id);}}><Trash2 className="w-3 h-3 text-red-300"/></button></div>
+                                                <tr key={tx.id} className="border-b border-black/5 last:border-0 text-[14px] text-slate-800">
+                                                    <td className="py-2">{tx.date}</td>
+                                                    <td className="py-2 text-right">
+                                                        <div className="flex flex-col">
+                                                            <span>{tx.shares}股</span>
+                                                            <span className="text-xs text-slate-400">@{tx.price}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-2 text-right">${tx.totalAmount.toLocaleString()}</td>
+                                                    <td className="py-2 text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <button onClick={(e)=>{e.stopPropagation(); startEdit(tx);}} className="p-1 hover:bg-slate-200 rounded"><Edit3 className="w-4 h-4 text-blue-400"/></button>
+                                                            <button onClick={(e)=>{e.stopPropagation(); handleDeleteClick(item.id, tx.id);}} className="p-1 hover:bg-slate-200 rounded"><Trash2 className="w-4 h-4 text-red-300"/></button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -261,6 +297,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
 
           {hasData && (
             <div className="pt-2 pb-4 space-y-2">
+                {/* A3: Analysis Area (Charts & Future Projections) - This part scrolls along with A2 */}
                 
                 {/* 0. Asset P/L */}
                 <div className="bg-white p-2 rounded-lg shadow-sm border border-slate-200">
