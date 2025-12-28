@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { PortfolioItem, Transaction, EtfData } from '../types';
-import { Trash2, ChevronDown, ChevronUp, Edit3, Save, Plus, BarChart3, TrendingUp, Wallet, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, Edit3, Save, Plus, BarChart3, TrendingUp, Wallet, ArrowUpRight, ArrowDownRight, X, Check } from 'lucide-react';
 
 interface Props {
   portfolio: PortfolioItem[];
@@ -64,14 +64,19 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
   const cancelAdd = () => { setAddingToId(null); setAddForm(null); };
 
   const startEdit = (tx: Transaction) => { setEditingTxId(tx.id); setEditForm({ ...tx }); setAddingToId(null); };
+  
   const handleEditChange = (field: keyof Transaction, value: string | number) => {
     if (!editForm) return;
     let newVal = Number(value);
     if (field === 'date') newVal = value as any;
     const updated = { ...editForm, [field]: newVal };
-    if (field === 'shares' || field === 'price') updated.totalAmount = Number(updated.shares) * Number(updated.price);
+    // Auto calculate total only if user changes shares or price
+    if (field === 'shares' || field === 'price') {
+        updated.totalAmount = Number(updated.shares) * Number(updated.price);
+    }
     setEditForm(updated);
   };
+
   const saveEdit = (etfCode: string) => { if (editForm) { onUpdateTransaction(etfCode, editForm); setEditingTxId(null); setEditForm(null); } };
   const cancelEdit = () => { setEditingTxId(null); setEditForm(null); };
   const handleDeleteClick = (etfCode: string, txId: string) => { if (window.confirm("確定刪除?")) onDeleteTransaction(etfCode, txId); };
@@ -93,25 +98,20 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
         const itemTotalCost = item.transactions.reduce((sum, tx) => sum + tx.totalAmount, 0);
         const totalShares = item.transactions.reduce((s, tx) => s + tx.shares, 0);
         
-        // --- 股息計算核心邏輯 (雙重保險) ---
+        // --- 股息計算核心邏輯 ---
         let estimatedAnnualDivAmount = 0;
         let type = item.etf.category;
         if (type === 'AE') type = getBondType(item.etf.code) as any;
-        // 防呆: 常見月配
         if (!type && ['00929','00939','00940','00937B','00772B'].some(x => item.etf.code.includes(x))) type = 'AD' as any;
         
         const isMonthly = type === 'AD';
         const frequency = isMonthly ? 12 : 4;
 
-        // 方法 1: 優先用殖利率
         if (item.etf.dividendYield > 0) {
             estimatedAnnualDivAmount = itemTotalCost * (item.etf.dividendYield / 100);
         }
         
-        // 方法 2: 若殖利率失效(0)，強制用最近一次配息推算
-        // 只要有配息紀錄，此方法保證有值
         if (estimatedAnnualDivAmount === 0 && item.etf.dividends && item.etf.dividends.length > 0) {
-             // 排序找最新
              const sortedDivs = [...item.etf.dividends].sort((a,b) => b.date.localeCompare(a.date));
              const latest = sortedDivs[0];
              if (latest && latest.amount > 0) {
@@ -119,9 +119,8 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
              }
         }
 
-        // 分配到月份
         if (estimatedAnnualDivAmount > 0) {
-            let targetMonths = [2, 5, 8, 11]; // Default Quarterly (Mar, Jun, Sep, Dec)
+            let targetMonths = [2, 5, 8, 11];
             if (type === 'AD') targetMonths = [0,1,2,3,4,5,6,7,8,9,10,11];
             else if (type === 'AA') targetMonths = [0, 3, 6, 9];
             else if (type === 'AB') targetMonths = [1, 4, 7, 10];
@@ -173,8 +172,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
   return (
     <div className="flex flex-col h-full bg-slate-50">
       
-      {/* A1: Statistics - Ultra Compact */}
-      {/* 樣式更新: 標語細字 14px, 內容粗字 18px */}
+      {/* A1: Statistics */}
       <div className="bg-white shadow-sm border-b border-slate-200 p-2 shrink-0 z-20">
           <div className="grid grid-cols-3 gap-1 text-center">
               <div className="flex flex-col items-center">
@@ -194,7 +192,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
 
       <div className="flex-1 overflow-y-auto p-2 pt-1 scrollbar-hide space-y-2">
           
-          {/* A2: Holdings - Compact, No Header */}
+          {/* A2: Holdings */}
           {portfolio.length > 0 && (
             <div className="space-y-1">
                 {portfolio.map((item) => {
@@ -207,7 +205,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                     return (
                         <div key={item.id} className={`rounded-lg shadow-sm border ${style} ${isExpanded ? 'ring-1 ring-blue-200' : ''}`}>
                             <div onClick={() => toggleExpand(item.id)} className="p-2 flex flex-col gap-1 cursor-pointer">
-                                {/* 第一行: 股票代碼 (20px 粗 藍) / 股票名稱 (18px 細 灰) */}
+                                {/* 第一行 */}
                                 <div className="flex justify-between items-center border-b border-black/5 pb-1">
                                     <div className="flex items-baseline gap-2 overflow-hidden flex-1">
                                         <span className="text-[20px] font-bold text-blue-900">{item.id}</span>
@@ -219,7 +217,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                     </div>
                                 </div>
                                 
-                                {/* 第二行: 數據欄位 - 標語細字 12px, 內容粗字 16px */}
+                                {/* 第二行 */}
                                 <div className="grid grid-cols-4 gap-1">
                                     <div className="text-center">
                                         <div className="text-[12px] text-slate-500 font-light">累計張數</div>
@@ -240,51 +238,138 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                 </div>
                             </div>
 
-                            {/* 子表: 交易明細 */}
+                            {/* 子表: 交易明細 (包含編輯模式邏輯) */}
                             {isExpanded && (
                                 <div className="border-t border-black/5 bg-white/60 p-2 rounded-b-lg">
+                                    {/* Add Form */}
                                     {addingToId === item.id && addForm && (
                                         <div className="bg-white rounded p-2 mb-2 border border-blue-200 shadow-sm">
                                             <div className="text-xs font-bold text-blue-800 mb-1">新增交易</div>
-                                            <div className="grid grid-cols-2 gap-1 mb-2">
-                                                <input value={addForm.date} onChange={(e) => handleAddChange('date', e.target.value)} className="border rounded px-1 py-1 text-xs" placeholder="YYYY/MM/DD" />
-                                                <input type="number" value={addForm.totalAmount} onChange={(e) => handleAddChange('totalAmount', e.target.value)} className="border rounded px-1 py-1 text-xs text-right" />
-                                                <input type="number" value={addForm.shares} onChange={(e) => handleAddChange('shares', e.target.value)} className="border rounded px-1 py-1 text-xs text-right" />
-                                                <input type="number" value={addForm.price} onChange={(e) => handleAddChange('price', e.target.value)} className="border rounded px-1 py-1 text-xs text-right" />
+                                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                                <div className="flex flex-col">
+                                                    <label className="text-[12px] font-light text-slate-500">日期</label>
+                                                    <input value={addForm.date} onChange={(e) => handleAddChange('date', e.target.value)} className="border rounded px-2 py-1 text-[16px] font-bold text-slate-800" placeholder="YYYY/MM/DD" />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                     <label className="text-[12px] font-light text-slate-500">張數</label>
+                                                     <input type="number" value={addForm.shares} onChange={(e) => handleAddChange('shares', e.target.value)} className="border rounded px-2 py-1 text-[16px] font-bold text-slate-800 text-right" />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                     <label className="text-[12px] font-light text-slate-500">單價</label>
+                                                     <input type="number" value={addForm.price} onChange={(e) => handleAddChange('price', e.target.value)} className="border rounded px-2 py-1 text-[16px] font-bold text-slate-800 text-right" />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                     <label className="text-[12px] font-light text-slate-500">成交總價</label>
+                                                     <input type="number" value={addForm.totalAmount} onChange={(e) => handleAddChange('totalAmount', e.target.value)} className="border rounded px-2 py-1 text-[16px] font-bold text-slate-800 text-right" />
+                                                </div>
                                             </div>
-                                            <div className="flex gap-2 justify-end"><button onClick={cancelAdd} className="px-2 py-1 text-xs bg-slate-100 rounded">取消</button><button onClick={() => saveAdd(item.id)} className="px-2 py-1 text-xs bg-blue-600 text-white rounded">儲存</button></div>
+                                            <div className="flex gap-2 justify-end">
+                                                <button onClick={cancelAdd} className="px-3 py-1 text-sm bg-slate-100 rounded text-slate-600">取消</button>
+                                                <button onClick={() => saveAdd(item.id)} className="px-3 py-1 text-sm bg-blue-600 text-white rounded">儲存</button>
+                                            </div>
                                         </div>
                                     )}
+
+                                    {/* Transaction Table */}
                                     <table className="w-full text-left">
-                                        {/* 子表標頭: 細字 12px */}
                                         <thead>
                                             <tr className="border-b border-black/5 text-[12px] font-light text-slate-500">
-                                                <th className="py-1 font-light">日期</th>
-                                                <th className="py-1 text-right font-light">張數 / 單價</th>
-                                                <th className="py-1 text-right font-light">成交總價</th>
-                                                <th className="py-1 text-right font-light">操作</th>
+                                                <th className="py-1 font-light w-[25%]">日期</th>
+                                                <th className="py-1 text-right font-light w-[30%]">張數 / 單價</th>
+                                                <th className="py-1 text-right font-light w-[30%]">成交總價</th>
+                                                <th className="py-1 text-right font-light w-[15%]">操作</th>
                                             </tr>
                                         </thead>
-                                        {/* 子表內容: 正常 14px */}
                                         <tbody>
-                                            {item.transactions.map((tx) => (
-                                                <tr key={tx.id} className="border-b border-black/5 last:border-0 text-[14px] text-slate-800">
-                                                    <td className="py-2">{tx.date}</td>
-                                                    <td className="py-2 text-right">
-                                                        <div className="flex flex-col">
-                                                            <span>{tx.shares}股</span>
-                                                            <span className="text-xs text-slate-400">@{tx.price}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-2 text-right">${tx.totalAmount.toLocaleString()}</td>
-                                                    <td className="py-2 text-right">
-                                                        <div className="flex justify-end gap-2">
-                                                            <button onClick={(e)=>{e.stopPropagation(); startEdit(tx);}} className="p-1 hover:bg-slate-200 rounded"><Edit3 className="w-4 h-4 text-blue-400"/></button>
-                                                            <button onClick={(e)=>{e.stopPropagation(); handleDeleteClick(item.id, tx.id);}} className="p-1 hover:bg-slate-200 rounded"><Trash2 className="w-4 h-4 text-red-300"/></button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {item.transactions.map((tx) => {
+                                                // 編輯模式: 渲染編輯表單
+                                                if (editingTxId === tx.id && editForm) {
+                                                    return (
+                                                        <tr key={tx.id} className="bg-blue-50/50">
+                                                            <td colSpan={4} className="py-2">
+                                                                <div className="p-2 border border-blue-200 rounded-lg bg-white shadow-sm flex flex-col gap-2">
+                                                                    <div className="flex justify-between items-center border-b border-blue-100 pb-1 mb-1">
+                                                                        <span className="text-xs font-bold text-blue-800">編輯交易</span>
+                                                                        <button onClick={cancelEdit}><X className="w-4 h-4 text-slate-400"/></button>
+                                                                    </div>
+                                                                    
+                                                                    {/* Row 1: Date & Shares */}
+                                                                    <div className="grid grid-cols-2 gap-3">
+                                                                        <div className="flex flex-col">
+                                                                            <label className="text-[12px] font-light text-slate-500 mb-0.5">日期</label>
+                                                                            <input 
+                                                                                value={editForm.date} 
+                                                                                onChange={(e) => handleEditChange('date', e.target.value)} 
+                                                                                className="w-full border rounded px-2 py-1.5 text-[16px] font-bold text-slate-800 bg-slate-50 focus:bg-white focus:ring-1 focus:ring-blue-300 outline-none" 
+                                                                            />
+                                                                        </div>
+                                                                        <div className="flex flex-col">
+                                                                            <label className="text-[12px] font-light text-slate-500 mb-0.5 text-right">張數</label>
+                                                                            <input 
+                                                                                type="number"
+                                                                                value={editForm.shares} 
+                                                                                onChange={(e) => handleEditChange('shares', e.target.value)} 
+                                                                                className="w-full border rounded px-2 py-1.5 text-[16px] font-bold text-slate-800 text-right bg-slate-50 focus:bg-white focus:ring-1 focus:ring-blue-300 outline-none" 
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Row 2: Price & Total (Stacked layout as requested) */}
+                                                                    <div className="grid grid-cols-2 gap-3">
+                                                                         <div className="flex flex-col">
+                                                                            <label className="text-[12px] font-light text-slate-500 mb-0.5">單價</label>
+                                                                            <input 
+                                                                                type="number"
+                                                                                value={editForm.price} 
+                                                                                onChange={(e) => handleEditChange('price', e.target.value)} 
+                                                                                className="w-full border rounded px-2 py-1.5 text-[16px] font-bold text-slate-800 bg-slate-50 focus:bg-white focus:ring-1 focus:ring-blue-300 outline-none" 
+                                                                            />
+                                                                        </div>
+                                                                        <div className="flex flex-col">
+                                                                            <label className="text-[12px] font-light text-slate-500 mb-0.5 text-right">成交總價</label>
+                                                                            <input 
+                                                                                type="number"
+                                                                                value={editForm.totalAmount} 
+                                                                                onChange={(e) => handleEditChange('totalAmount', e.target.value)} 
+                                                                                className="w-full border rounded px-2 py-1.5 text-[16px] font-bold text-slate-800 text-right bg-slate-50 focus:bg-white focus:ring-1 focus:ring-blue-300 outline-none" 
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="flex justify-end pt-2 border-t border-slate-100 mt-1">
+                                                                        <button onClick={() => saveEdit(item.id)} className="flex items-center gap-1 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 active:scale-95 transition-all">
+                                                                            <Save className="w-4 h-4" />
+                                                                            <span className="text-sm font-bold">儲存修改</span>
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                }
+
+                                                // 顯示模式: 依照要求調整字體 (日期 16px, 內容 16px bold)
+                                                return (
+                                                    <tr key={tx.id} className="border-b border-black/5 last:border-0 hover:bg-black/5 transition-colors">
+                                                        <td className="py-2 text-[14px] font-bold text-slate-700">{tx.date}</td>
+                                                        <td className="py-2 text-right">
+                                                            <div className="flex flex-col items-end">
+                                                                <span className="text-[16px] font-bold text-slate-900 leading-none">{tx.shares}</span>
+                                                                <span className="text-[12px] font-light text-slate-400 mt-0.5">@{tx.price}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-2 text-right text-[16px] font-bold text-slate-900">
+                                                            ${Math.round(tx.totalAmount).toLocaleString()}
+                                                        </td>
+                                                        <td className="py-2 text-right">
+                                                            <div className="flex justify-end gap-1">
+                                                                <button onClick={(e)=>{e.stopPropagation(); startEdit(tx);}} className="p-1.5 bg-slate-100 rounded text-blue-600 hover:bg-blue-100 transition-colors"><Edit3 className="w-4 h-4"/></button>
+                                                                <button onClick={(e)=>{e.stopPropagation(); handleDeleteClick(item.id, tx.id);}} className="p-1.5 bg-slate-100 rounded text-red-400 hover:bg-red-100 transition-colors"><Trash2 className="w-4 h-4"/></button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -297,9 +382,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
 
           {hasData && (
             <div className="pt-2 pb-4 space-y-2">
-                {/* A3: Analysis Area (Charts & Future Projections) - This part scrolls along with A2 */}
-                
-                {/* 0. Asset P/L */}
+                {/* A3: Analysis Area (Charts & Future Projections) */}
                 <div className="bg-white p-2 rounded-lg shadow-sm border border-slate-200">
                     <div className="flex items-center gap-1.5 mb-2 pb-1 border-b border-slate-100">
                          <div className="p-1 bg-indigo-100 rounded"><Wallet className="w-3 h-3 text-indigo-600" /></div>
@@ -368,19 +451,16 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                         <div className="flex justify-between mt-1 text-[10px] text-slate-400 font-bold px-1"><span>1月</span><span>6月</span><span>12月</span></div>
                     </div>
                     
-                    {/* Summary Metrics (New Order) */}
+                    {/* Summary Metrics */}
                     <div className="mt-2 grid grid-cols-3 gap-1 text-center bg-slate-50 rounded-lg p-2 border border-slate-100">
-                        {/* 1. 報酬率 */}
                         <div className="flex flex-col gap-0.5">
                             <span className="text-[12px] font-light text-slate-400">報酬率(預估)</span>
                             <span className={`text-[16px] font-bold ${analysisData.portfolioAvgReturnRate >= 0 ? 'text-red-600' : 'text-green-600'}`}>{analysisData.portfolioAvgReturnRate.toFixed(2)}%</span>
                         </div>
-                        {/* 2. 含息報酬 */}
                         <div className="flex flex-col gap-0.5 border-l border-slate-200">
                             <span className="text-[12px] font-light text-slate-400">含息報酬(預估)</span>
                             <span className={`text-[16px] font-bold ${estimatedFutureReturnRate >= 0 ? 'text-red-600' : 'text-green-600'}`}>{estimatedFutureReturnRate.toFixed(2)}%</span>
                         </div>
-                        {/* 3. 獲利 */}
                         <div className="flex flex-col gap-0.5 border-l border-slate-200">
                             <span className="text-[12px] font-light text-slate-400">獲利(預估)</span>
                             <span className={`text-[16px] font-bold ${estimatedFutureProfit >= 0 ? 'text-red-600' : 'text-green-600'}`}>{estimatedFutureProfit > 0 ? '+' : ''}{Math.round(estimatedFutureProfit).toLocaleString()}</span>
