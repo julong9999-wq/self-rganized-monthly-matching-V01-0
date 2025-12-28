@@ -7,7 +7,8 @@ import PerformanceView from './components/PerformanceView';
 import PortfolioView from './components/PortfolioView';
 import SheetConfigView from './components/SheetConfigView';
 import AnnouncementView from './components/AnnouncementView';
-import PlanningView from './components/PlanningView'; // Import the new view
+import PlanningView from './components/PlanningView';
+import AnalysisView from './components/AnalysisView'; // Import the new view
 import { LayoutDashboard, PieChart, BrainCircuit, Bot, Megaphone, CheckCircle, AlertTriangle, Loader2, BarChart3, Settings, Key, CircleHelp, X, ExternalLink, ShieldCheck, Tag, Trash2, LogIn, Play, RefreshCcw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -546,13 +547,10 @@ const App: React.FC = () => {
 
           case 'analysis':
              return (
-                <div className="h-full p-4 overflow-y-auto scrollbar-hide">
-                    <div className="bg-white rounded-xl p-8 text-center text-slate-400 shadow-sm text-lg">
-                        <BarChart3 className="w-12 h-12 mx-auto mb-4 text-blue-200" />
-                        <h3 className="font-bold text-slate-600 mb-2">分析資料</h3>
-                        <p className="text-sm">進階分析功能開發中...</p>
-                    </div>
-                </div>
+                <AnalysisView 
+                    etfs={etfs}
+                    lastUpdated={lastUpdated}
+                />
              );
           
           case 'planning':

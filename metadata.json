@@ -1,5 +1,5 @@
 {
-  "name": "自組月月配投資助理-測試版 ",
+  "name": "2026 自組月配 投資助理 V01.0",
   "description": "A Proof of Concept tool to demonstrate how Gemini can read and analyze specific Google Sheet published data.",
   "requestFramePermissions": [
     "microphone"

@@ -23,6 +23,7 @@ export interface EtfData {
   returnRate: number;     // 報酬率
   totalReturn: number;    // 含息報酬率
   dividends: Dividend[];  // 配息紀錄
+  priceHistory: { date: string; price: number }[]; // 新增：歷史股價序列
 }
 
 export interface Dividend {

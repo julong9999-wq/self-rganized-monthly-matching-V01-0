@@ -123,7 +123,6 @@ export const parseDividendData = (csvContent: string): Record<string, Dividend[]
   let header = parseCSVRow(lines[0]).map(c => c.trim().toLowerCase());
 
   // Scan for header if first row isn't it
-  // Updated keywords based on user input: ETF 代碼
   if (!header.some(h => h.includes('代號') || h.includes('code') || h.includes('etf 代碼') || h.includes('symbol'))) {
       for(let i=0; i<Math.min(lines.length, 5); i++) {
           const rowValues = parseCSVRow(lines[i]);
@@ -139,11 +138,8 @@ export const parseDividendData = (csvContent: string): Record<string, Dividend[]
 
   const findCol = (keywords: string[]) => header.findIndex(h => keywords.some(k => h.includes(k)));
 
-  // Enhanced keywords for detection based on user input
-  // Added 'ETF 代碼', '除息日期', '除息金額'
   const idxCode = findCol(['etf 代碼', '股號', '代號', 'code', '股票代號', 'symbol', '代碼']);
   const idxDate = findCol(['除息日期', '除息日', 'date', '配息日', '日期', '除息交易日', '發放日', '除息']);
-  // Broadened amount keywords
   const idxAmount = findCol(['除息金額', '配息', '金額', 'amount', '現金股利', '分配金額', '現金', '股利', 'distribution']);
 
   if (idxCode === -1 || idxAmount === -1) {
@@ -158,8 +154,6 @@ export const parseDividendData = (csvContent: string): Record<string, Dividend[]
       const rawCode = row[idxCode];
       const code = rawCode ? rawCode.replace(/['"]/g, '').trim() : '';
       
-      // Removed CATEGORY_MAP check here to ensure we capture all data available in the sheet.
-      // Filtering will happen when merging with ETF list.
       if (code) {
           const amountStr = row[idxAmount]?.replace(/[^0-9.]/g, '') || '0';
           const amount = parseFloat(amountStr);
@@ -199,7 +193,6 @@ export const parseEtfData = (csvContent: string): EtfData[] => {
      const rowValues = parseCSVRow(lines[i]);
      const rowLower = rowValues.map(c => c.toLowerCase());
      
-     // Added 'ETF 代碼' to the header check
      if (rowLower.some(c => c.includes('代碼') || c.includes('代號') || c.includes('code') || c.includes('etf 代碼') || c.includes('symbol'))) {
          headerRowIndex = i;
          header = rowLower;
@@ -214,16 +207,17 @@ export const parseEtfData = (csvContent: string): EtfData[] => {
   
   const findCol = (keywords: string[]) => header.findIndex(h => keywords.some(k => h.includes(k)));
 
-  // Added 'ETF 代碼' here as well
   const idxCode = findCol(['etf 代碼', '股號', '代碼', '代號', 'code', 'symbol', '股票代號']);
-  const idxName = findCol(['etf 名稱', '股名', '股票名稱', 'etf名稱', '名稱', 'name']); // Added 'ETF 名稱'
-  const idxMarket = findCol(['上市/ 上櫃', '市場', 'market', '類別', '上市', '上櫃', 'type', '掛牌']); // Added '上市/ 上櫃'
+  const idxName = findCol(['etf 名稱', '股名', '股票名稱', 'etf名稱', '名稱', 'name']); 
+  const idxMarket = findCol(['上市/ 上櫃', '市場', 'market', '類別', '上市', '上櫃', 'type', '掛牌']); 
   
   // --- 2. Dynamic Price Column Detection ---
+  // 修改：捕捉所有日期欄位作為歷史數據
   const dateColIndices = header.map((h, index) => {
-      // Matches YYYY/MM/DD, YYYY-MM-DD, MM/DD
-      if (/(\d{1,4}[-./]\d{1,2}[-./]\d{1,2})|(\d{1,2}[-./]\d{1,2})/.test(h)) {
-          // Re-fetch original casing for display
+      // Matches YYYY/MM/DD, YYYY-MM-DD, MM/DD, YYYYMM (6 digits), YYYY/MM (for monthly data)
+      const isDate = /(\d{1,4}[-./]\d{1,2}[-./]\d{1,2})|(\d{1,2}[-./]\d{1,2})|(\d{4}[-./]\d{1,2})/.test(h) || /^\d{6}$/.test(h.replace(/\//g,''));
+      
+      if (isDate) {
           const originalHeader = parseCSVRow(lines[headerRowIndex])[index];
           return { index, text: originalHeader.trim() };
       }
@@ -233,6 +227,8 @@ export const parseEtfData = (csvContent: string): EtfData[] => {
   let idxPriceCurrent = -1;
   let currentPriceDateLabel = '';
 
+  // 排序日期欄位 (假設越後面的欄位日期越新)
+  // 如果能解析日期值會更好，這裡假設表格是由左至右為舊到新
   if (dateColIndices.length > 0) {
       const lastDateCol = dateColIndices[dateColIndices.length - 1];
       idxPriceCurrent = lastDateCol.index;
@@ -288,11 +284,6 @@ export const parseEtfData = (csvContent: string): EtfData[] => {
             }
         }
 
-        let priceCurrent = 0;
-        let priceBase = 0;
-        let dividendYield = 0;
-        let returnRate = 0;
-
         const parseNum = (val: string) => {
             if (!val) return 0;
             const clean = val.replace(/[%$,]/g, '');
@@ -300,12 +291,31 @@ export const parseEtfData = (csvContent: string): EtfData[] => {
             return isNaN(num) ? 0 : num;
         };
 
+        // 收集歷史股價
+        const priceHistory: { date: string; price: number }[] = [];
+        dateColIndices.forEach(col => {
+            if (row[col.index]) {
+                const p = parseNum(row[col.index]);
+                if (p > 0) {
+                    priceHistory.push({ date: col.text, price: p });
+                }
+            }
+        });
+
+        let priceCurrent = 0;
+        let priceBase = 0;
+        let dividendYield = 0;
+        let returnRate = 0;
+
         if (idxPriceCurrent !== -1 && row[idxPriceCurrent]) {
             priceCurrent = parseNum(row[idxPriceCurrent]);
         }
         
         if (idxPriceBase !== -1 && row[idxPriceBase]) {
             priceBase = parseNum(row[idxPriceBase]);
+        } else if (priceHistory.length > 0) {
+            // 如果抓不到指定的 Base 欄位，嘗試用歷史數據的第一筆當 Base
+            priceBase = priceHistory[0].price;
         }
 
         if (idxYield !== -1 && row[idxYield]) {
@@ -318,13 +328,8 @@ export const parseEtfData = (csvContent: string): EtfData[] => {
             returnRate = ((priceCurrent - priceBase) / priceBase) * 100;
         }
 
-        if (priceCurrent === 0) {
-             const nums = row.map((val, index) => ({ val: parseNum(val), index }))
-                             .filter(({ val, index }) => !isNaN(val) && val > 0 && index !== idxCode);
-             if (nums.length > 0) {
-                 const possiblePrice = nums.find(n => n.val > 5); 
-                 if (possiblePrice) priceCurrent = possiblePrice.val;
-             }
+        if (priceCurrent === 0 && priceHistory.length > 0) {
+             priceCurrent = priceHistory[priceHistory.length - 1].price;
         }
 
         etfs.push({
@@ -339,7 +344,8 @@ export const parseEtfData = (csvContent: string): EtfData[] => {
             estYield: 0, 
             returnRate: Number(returnRate.toFixed(2)),
             totalReturn: Number(returnRate.toFixed(2)), 
-            dividends: [] 
+            dividends: [],
+            priceHistory // 寫入歷史資料
         });
     }
   }
