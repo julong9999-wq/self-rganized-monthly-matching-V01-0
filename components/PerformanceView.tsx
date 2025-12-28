@@ -279,24 +279,24 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
                             </span>
                         </div>
 
-                        {/* 第 2 行: 最近股價, 殖利率, 報酬率, [按鈕: + 自組月配] */}
-                        {/* 標題 10px 細 / 內容 18px 粗 */}
-                        <div className="grid grid-cols-4 items-center gap-1 leading-tight">
-                            <div className="flex flex-col">
-                                <span className="text-[10px] font-light text-slate-600">最近股價</span>
-                                <span className="text-[18px] font-bold text-slate-900">{etf.priceCurrent}</span>
+                        {/* 第 2 行: 佈局優化 (Grid 改為 [32% 22% 30% 16%]) */}
+                        <div className="grid grid-cols-[32%_22%_30%_16%] items-center gap-0 leading-tight py-1 divide-x divide-slate-200/60">
+                            <div className="text-left flex flex-col px-1">
+                                <span className="text-[10px] font-light text-slate-500 mb-0.5">最近股價</span>
+                                <span className="text-[18px] font-bold text-slate-900 leading-none">{etf.priceCurrent}</span>
                             </div>
-                            <div className="flex flex-col text-right">
-                                <span className="text-[10px] font-light text-slate-600">殖利率</span>
-                                <span className="text-[18px] font-bold text-slate-900">{etf.dividendYield}%</span>
+                            <div className="text-center flex flex-col px-1">
+                                <span className="text-[10px] font-light text-slate-500 mb-0.5">殖利率</span>
+                                <span className="text-[18px] font-bold text-slate-900 leading-none">{etf.dividendYield}%</span>
                             </div>
-                            <div className="flex flex-col text-right">
-                                <span className="text-[10px] font-light text-slate-600">報酬率</span>
-                                <span className={`text-[18px] font-bold ${etf.returnRate >= 0 ? 'text-red-700' : 'text-green-700'}`}>
+                            {/* 調整：報酬率靠右對齊 (text-right) */}
+                            <div className="text-right flex flex-col px-1 pr-2">
+                                <span className="text-[10px] font-light text-slate-500 mb-0.5">報酬率</span>
+                                <span className={`text-[18px] font-bold leading-none ${etf.returnRate >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                                     {etf.returnRate}%
                                 </span>
                             </div>
-                            <div className="text-right flex justify-end">
+                            <div className="text-right flex justify-end px-1">
                                 {/* 按鈕: 自組月配 (+) */}
                                 <button 
                                     onClick={(e) => {
@@ -304,31 +304,31 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
                                         e.preventDefault();
                                         onAddToPortfolio(etf);
                                     }}
-                                    className="w-8 h-8 flex items-center justify-center bg-emerald-100/50 text-emerald-800 rounded-full hover:bg-emerald-200 transition-colors border border-emerald-200/50 shadow-sm"
+                                    className="w-10 h-9 flex items-center justify-center bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors border border-emerald-200 shadow-sm"
                                 >
                                     <Plus className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
 
-                        {/* 第 3 行: 起始股價, 預估殖利率, 含息報酬, [按鈕: CircleAlert 詳細資料] */}
-                        {/* 標題 10px 細 / 內容 16px 細字 (font-light) */}
-                        <div className="grid grid-cols-4 items-center gap-1 bg-white/40 -mx-2 px-2 py-1 rounded-b-lg mt-0.5 leading-tight">
-                            <div className="flex flex-col">
-                                <span className="text-[10px] font-light text-slate-600">起始股價</span>
-                                <span className="text-[16px] font-light text-slate-900">{etf.priceBase}</span>
+                        {/* 第 3 行: 佈局優化 (Grid 改為 [32% 22% 30% 16%]) */}
+                        <div className="grid grid-cols-[32%_22%_30%_16%] items-center gap-0 bg-white/40 -mx-2 px-2 py-1.5 rounded-b-lg mt-0.5 leading-tight divide-x divide-slate-200/60">
+                            <div className="text-left flex flex-col px-1">
+                                <span className="text-[10px] font-light text-slate-500 mb-0.5">起始股價</span>
+                                <span className="text-[16px] font-medium text-slate-700 leading-none">{etf.priceBase}</span>
                             </div>
-                            <div className="flex flex-col text-right">
-                                <span className="text-[10px] font-light text-slate-600">預估殖利率</span>
-                                <span className="text-[16px] font-light text-slate-900">{estYieldDisplay}</span>
+                            <div className="text-center flex flex-col px-1">
+                                <span className="text-[10px] font-light text-slate-500 mb-0.5">預估殖利率</span>
+                                <span className="text-[16px] font-medium text-slate-700 leading-none">{estYieldDisplay}</span>
                             </div>
-                            <div className="flex flex-col text-right">
-                                <span className="text-[10px] font-light text-slate-600">含息報酬</span>
-                                <span className={`text-[16px] font-light ${etf.totalReturn >= 0 ? 'text-red-700' : 'text-green-700'}`}>
+                            {/* 調整：含息報酬靠右對齊 (text-right) */}
+                            <div className="text-right flex flex-col px-1 pr-2">
+                                <span className="text-[10px] font-light text-slate-500 mb-0.5">含息報酬</span>
+                                <span className={`text-[16px] font-medium leading-none ${etf.totalReturn >= 0 ? 'text-red-600' : 'text-green-600'}`}>
                                     {etf.totalReturn}%
                                 </span>
                             </div>
-                            <div className="text-right flex justify-end">
+                            <div className="text-right flex justify-end px-1">
                                 {/* 按鈕: 詳細資料 (CircleAlert) */}
                                 <button 
                                     onClick={(e) => {
@@ -336,7 +336,7 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
                                         e.preventDefault();
                                         setSelectedEtf(etf);
                                     }}
-                                    className="w-8 h-8 flex items-center justify-center bg-white/60 text-slate-700 rounded-lg hover:bg-white hover:text-black transition-colors border border-black/5"
+                                    className="w-10 h-9 flex items-center justify-center bg-white/80 text-slate-600 rounded-lg hover:bg-white hover:text-black transition-colors border border-black/10 shadow-sm"
                                 >
                                     <CircleAlert className="w-5 h-5" />
                                 </button>
