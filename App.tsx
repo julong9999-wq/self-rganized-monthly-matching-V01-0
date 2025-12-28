@@ -9,7 +9,7 @@ import SheetConfigView from './components/SheetConfigView';
 import AnnouncementView from './components/AnnouncementView';
 import PlanningView from './components/PlanningView';
 import AnalysisView from './components/AnalysisView'; // Import the new view
-import { LayoutDashboard, PieChart, BrainCircuit, Bot, Megaphone, CheckCircle, AlertTriangle, Loader2, BarChart3, Settings, Key, CircleHelp, X, ExternalLink, ShieldCheck, Tag, Trash2, LogIn, Play, RefreshCcw } from 'lucide-react';
+import { LayoutDashboard, PieChart, BrainCircuit, Bot, Megaphone, CheckCircle, AlertTriangle, Loader2, BarChart3, Settings, Key, CircleHelp, X, ExternalLink, ShieldCheck, Tag, Trash2, LogIn, Play, RefreshCcw, Info } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -38,6 +38,7 @@ const App: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>('');
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showBetaModal, setShowBetaModal] = useState(false); // 新增測試版說明視窗狀態
   const [tempKeyInput, setTempKeyInput] = useState('');
 
   // Data State
@@ -701,13 +702,58 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center justify-end z-10 w-20">
-            <span className="text-[13px] font-bold text-yellow-300 tracking-wider border border-yellow-400/30 px-2 py-1 rounded bg-yellow-400/10 whitespace-nowrap">測試版</span>
+             <button
+                onClick={() => setShowBetaModal(true)}
+                className="text-[13px] font-bold text-yellow-300 tracking-wider border border-yellow-400/30 px-2 py-1 rounded bg-yellow-400/10 whitespace-nowrap hover:bg-yellow-400/20 transition-colors cursor-pointer active:scale-95"
+            >
+                測試版
+            </button>
         </div>
       </header>
 
       <main className="flex-grow overflow-hidden bg-slate-50 relative">
         {renderContent()}
       </main>
+
+      {/* --- Beta Modal (免責聲明) --- */}
+      {showBetaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+            <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+                <div className="bg-amber-50 px-6 py-4 border-b border-amber-100 flex justify-between items-center">
+                    <h3 className="text-xl font-bold text-amber-800 flex items-center gap-2">
+                        <ShieldCheck className="w-6 h-6" /> 免責聲明
+                    </h3>
+                    <button onClick={() => setShowBetaModal(false)} className="text-slate-400 hover:text-slate-600">
+                        <X className="w-7 h-7" />
+                    </button>
+                </div>
+                <div className="p-6 overflow-y-auto space-y-4 text-slate-600 text-base leading-relaxed">
+                    <p>
+                        <strong>「2026 自組月配 投資助理」</strong> 是一個輔助分析工具，旨在協助使用者整合公開資訊與進行試算。
+                    </p>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
+                        <h4 className="font-bold text-slate-800 flex items-center gap-2">
+                            <AlertTriangle className="w-5 h-5 text-amber-500" /> 重要提醒
+                        </h4>
+                        <ul className="list-disc pl-5 space-y-1 text-sm">
+                            <li>本系統所有數據僅供參考，實際數值請以官方公告為準。</li>
+                            <li>AI 分析結果基於語言模型生成，可能存在誤差，不代表專業投資建議。</li>
+                            <li>歷史績效不代表未來獲利保證。</li>
+                            <li>投資一定有風險，投資有賺有賠，申購前應詳閱公開說明書。</li>
+                        </ul>
+                    </div>
+                    <p>
+                        開發者不對任何因使用本系統而造成的直接或間接損失負責。請使用者根據自身風險承受能力，審慎做出投資決策。
+                    </p>
+                </div>
+                <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 text-center">
+                    <button onClick={() => setShowBetaModal(false)} className="w-full bg-blue-900 text-white py-3.5 rounded-xl font-bold shadow-sm hover:bg-blue-800 text-lg">
+                        我瞭解並同意
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
 
       {/* --- Help Modal --- */}
       {showHelpModal && (
