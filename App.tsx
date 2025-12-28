@@ -683,12 +683,7 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900 max-w-md mx-auto shadow-2xl overflow-hidden border-x border-slate-200 relative">
       <header className="bg-blue-900 text-white h-20 shrink-0 flex items-center justify-between px-4 shadow-md z-20 relative">
-        <div className="z-10 w-10"></div>
-        <div className="absolute left-0 right-0 flex justify-center pointer-events-none">
-            <h1 className="text-xl font-bold tracking-wide pointer-events-auto shadow-sm">{getHeaderTitle()}</h1>
-        </div>
-        <div className="flex items-center gap-3 z-10">
-            <span className="text-[13px] font-bold text-yellow-300 tracking-wider border border-yellow-400/30 px-2 py-1 rounded bg-yellow-400/10">測試版</span>
+        <div className="flex items-center justify-start z-10 w-20">
             {isConfigured && (
                 <button 
                     onClick={handleReset}
@@ -699,6 +694,14 @@ const App: React.FC = () => {
                     <Settings className="w-6 h-6" />
                 </button>
             )}
+        </div>
+        
+        <div className="absolute left-0 right-0 flex justify-center pointer-events-none">
+            <h1 className="text-xl font-bold tracking-wide pointer-events-auto shadow-sm">{getHeaderTitle()}</h1>
+        </div>
+
+        <div className="flex items-center justify-end z-10 w-20">
+            <span className="text-[13px] font-bold text-yellow-300 tracking-wider border border-yellow-400/30 px-2 py-1 rounded bg-yellow-400/10 whitespace-nowrap">測試版</span>
         </div>
       </header>
 
