@@ -221,8 +221,8 @@ const AnalysisView: React.FC<Props> = ({ etfs, lastUpdated }) => {
                  </button>
             </div>
 
-            {/* Area 1: Chart (比例 4:3) */}
-            <div className="w-full bg-white border-b border-slate-100 relative" style={{ aspectRatio: '4/3' }}>
+            {/* Area 1: Chart (比例 2:1 = 4:2) */}
+            <div className="w-full bg-white border-b border-slate-100 relative" style={{ aspectRatio: '2/1' }}>
                 <div className="absolute top-2 right-4 flex flex-col items-end text-[10px] text-slate-500 gap-1 z-10">
                     <div className="flex items-center gap-1"><div className="w-3 h-0.5 bg-red-500"></div>含息股價</div>
                     <div className="flex items-center gap-1"><div className="w-3 h-0.5 bg-blue-500"></div>股價</div>
@@ -236,7 +236,7 @@ const AnalysisView: React.FC<Props> = ({ etfs, lastUpdated }) => {
                         <line x1="0" y1="75" x2="100" y2="75" stroke="#f1f5f9" strokeWidth="1" />
                         <line x1="0" y1="100" x2="100" y2="100" stroke="#f1f5f9" strokeWidth="1" />
                         
-                        {/* Total Price Line (Red) - strokeWidth 1.5 (Thinner) */}
+                        {/* Total Price Line (Red) - strokeWidth 1.5 */}
                         <polyline 
                             fill="none" 
                             stroke="#ef4444" 
@@ -246,7 +246,7 @@ const AnalysisView: React.FC<Props> = ({ etfs, lastUpdated }) => {
                             points={pointsTotal} 
                         />
 
-                        {/* Price Line (Blue) - strokeWidth 1.5 (Thinner) */}
+                        {/* Price Line (Blue) - strokeWidth 1.5 */}
                         <polyline 
                             fill="none" 
                             stroke="#3b82f6" 
@@ -277,10 +277,10 @@ const AnalysisView: React.FC<Props> = ({ etfs, lastUpdated }) => {
                     <tbody>
                         {tableData.map((row, idx) => (
                             <tr key={idx} className="border-b border-slate-200/50">
-                                {/* 內容文字 : 18 px 粗字 */}
-                                <td className="py-3 text-[18px] text-slate-800 font-bold">{formatDate(row.date)}</td>
-                                <td className="py-3 text-[18px] text-slate-800 font-bold text-right">{row.price.toFixed(2)}</td>
-                                <td className={`py-3 text-[18px] font-bold text-right ${row.rate > 0 ? 'text-red-600' : row.rate < 0 ? 'text-green-600' : 'text-slate-800'}`}>
+                                {/* 內容文字 : 18 px 細字 (font-light) */}
+                                <td className="py-3 text-[18px] text-slate-800 font-light">{formatDate(row.date)}</td>
+                                <td className="py-3 text-[18px] text-slate-800 font-light text-right">{row.price.toFixed(2)}</td>
+                                <td className={`py-3 text-[18px] font-light text-right ${row.rate > 0 ? 'text-red-600' : row.rate < 0 ? 'text-green-600' : 'text-slate-800'}`}>
                                     {row.rate !== 0 ? `${row.rate.toFixed(2)}%` : '-'}
                                 </td>
                             </tr>
