@@ -9,7 +9,7 @@ import SheetConfigView from './components/SheetConfigView';
 import AnnouncementView from './components/AnnouncementView';
 import PlanningView from './components/PlanningView';
 import AnalysisView from './components/AnalysisView'; // Import the new view
-import { LayoutDashboard, PieChart, BrainCircuit, Bot, Megaphone, CheckCircle, AlertTriangle, Loader2, BarChart3, Settings, Key, CircleHelp, X, ExternalLink, ShieldCheck, Tag, Trash2, LogIn, Play, RefreshCcw, Info } from 'lucide-react';
+import { LayoutDashboard, PieChart, BrainCircuit, Bot, Megaphone, CheckCircle, AlertTriangle, Loader2, BarChart3, Settings, Key, CircleHelp, X, ExternalLink, ShieldCheck, Tag, Trash2, LogIn, Play, RefreshCcw, Info, BookOpen, Fingerprint, Mic, Plus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -755,55 +755,88 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* --- Help Modal --- */}
+      {/* --- Help Modal (操作說明手冊) --- */}
       {showHelpModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
-            <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 <div className="bg-blue-50 px-6 py-4 border-b border-blue-100 flex justify-between items-center">
                     <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
-                        <CircleHelp className="w-6 h-6" /> 關於 AI 助理
+                        <BookOpen className="w-6 h-6" /> 系統操作說明
                     </h3>
                     <button onClick={() => setShowHelpModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-7 h-7" /></button>
                 </div>
-                <div className="p-6 overflow-y-auto space-y-6">
-                    {/* Why Key? */}
-                    <div className="space-y-3">
-                        <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                            <Key className="w-6 h-6 text-amber-500" /> 為什麼需要 API 金鑰？
+                
+                <div className="p-6 overflow-y-auto space-y-8 scrollbar-hide">
+                    
+                    {/* 1. 功能導覽 */}
+                    <div className="space-y-4">
+                        <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-l-4 border-blue-500 pl-2">
+                            <Info className="w-5 h-5 text-blue-500" /> 核心功能導覽
                         </h4>
-                        <p className="text-base text-slate-600 leading-relaxed">
-                            本 App 使用 Google Gemini 先進的語言模型來提供智慧規劃與診斷服務。就像使用 Google Maps 需要帳號一樣，AI 服務也需要一把「鑰匙」來通行。
+                        <div className="grid grid-cols-1 gap-3">
+                            <div className="flex gap-3 items-start bg-slate-50 p-3 rounded-xl">
+                                <LayoutDashboard className="w-5 h-5 text-blue-600 mt-1 shrink-0" />
+                                <div>
+                                    <h5 className="font-bold text-slate-700">績效查詢</h5>
+                                    <p className="text-sm text-slate-500">瀏覽各類 ETF (季配/月配/債券) 的最新股價與殖利率。點擊 <Plus className="w-3 h-3 inline bg-emerald-100 text-emerald-600 rounded p-0.5" /> 可加入自選組合。</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-3 items-start bg-slate-50 p-3 rounded-xl">
+                                <PieChart className="w-5 h-5 text-blue-600 mt-1 shrink-0" />
+                                <div>
+                                    <h5 className="font-bold text-slate-700">自組月配 (Portfolio)</h5>
+                                    <p className="text-sm text-slate-500">管理您的持股。系統會自動試算「每月預估股息」與「資產成長曲線」。點擊卡片可展開編輯交易紀錄。</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-3 items-start bg-slate-50 p-3 rounded-xl">
+                                <BrainCircuit className="w-5 h-5 text-blue-600 mt-1 shrink-0" />
+                                <div>
+                                    <h5 className="font-bold text-slate-700">智慧規劃</h5>
+                                    <p className="text-sm text-slate-500">輸入預算與需求 (支援語音 <Mic className="w-3 h-3 inline" />)，AI 會推薦適合的投資組合配置。</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-3 items-start bg-slate-50 p-3 rounded-xl">
+                                <BarChart3 className="w-5 h-5 text-blue-600 mt-1 shrink-0" />
+                                <div>
+                                    <h5 className="font-bold text-slate-700">分析資料</h5>
+                                    <p className="text-sm text-slate-500">提供進階篩選 (高息、市值、主題等)，並可查看歷史股價走勢圖表。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 2. 資料來源 */}
+                    <div className="space-y-3">
+                        <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-l-4 border-emerald-500 pl-2">
+                            <Fingerprint className="w-5 h-5 text-emerald-500" /> 資料設定
+                        </h4>
+                        <p className="text-sm text-slate-600 leading-relaxed">
+                            本系統需讀取 Google Sheets 發布的 CSV 資料。
+                            <br/>首次使用請確認網址已設定，系統會自動快取資料 15 分鐘。若需重設，請點擊左上角 <Settings className="w-3 h-3 inline" /> 圖示。
                         </p>
                     </div>
 
-                    {/* Cost & Security */}
-                    <div className="grid grid-cols-1 gap-4">
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                            <h5 className="font-bold text-slate-800 text-base mb-2 flex items-center gap-2"><Tag className="w-5 h-5 text-emerald-500" /> 費用說明</h5>
-                            <p className="text-base text-slate-600 leading-relaxed">Google 提供非常大方的<strong>免費額度</strong>，個人使用通常完全免費。</p>
-                        </div>
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                            <h5 className="font-bold text-slate-800 text-base mb-2 flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-blue-500" /> 安全性</h5>
-                            <p className="text-base text-slate-600 leading-relaxed">金鑰僅儲存在您的<strong>瀏覽器本地</strong> (Local Storage)，不會上傳至我們的主機。</p>
+                    {/* 3. AI 金鑰 */}
+                    <div className="space-y-3">
+                        <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-l-4 border-amber-500 pl-2">
+                            <Key className="w-5 h-5 text-amber-500" /> AI 金鑰設定
+                        </h4>
+                        <div className="bg-amber-50 p-4 rounded-xl text-sm text-amber-900 space-y-2">
+                            <p><strong>為什麼需要？</strong><br/>使用「智慧規劃」與「AI 診斷」功能需串接 Google Gemini 模型。</p>
+                            <p><strong>如何取得？</strong></p>
+                            <ol className="list-decimal pl-4 space-y-1">
+                                <li>點擊右上角 <Key className="w-3 h-3 inline" /> 按鈕。</li>
+                                <li>前往 Google AI Studio 申請免費 Key。</li>
+                                <li>貼上並儲存 (Key 僅存在您的瀏覽器中)。</li>
+                            </ol>
                         </div>
                     </div>
 
-                    {/* Steps */}
-                    <div className="space-y-4">
-                        <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                            <ExternalLink className="w-6 h-6 text-purple-500" /> 操作步驟
-                        </h4>
-                        <ol className="text-base text-slate-600 space-y-3 list-decimal pl-5 leading-relaxed">
-                            <li>點擊本 App 右上角的 <strong>金鑰設定</strong> 按鈕。</li>
-                            <li>點擊視窗中的連結前往 <strong>Google AI Studio</strong>。</li>
-                            <li>登入 Google 帳號後，點擊 <strong>Get API key</strong>。</li>
-                            <li>複製金鑰 (以 AIza 開頭的字串) 並貼回本 App 即可。</li>
-                        </ol>
-                    </div>
                 </div>
+                
                 <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 text-center">
                     <button onClick={() => setShowHelpModal(false)} className="w-full bg-blue-900 text-white py-3.5 rounded-xl font-bold shadow-sm hover:bg-blue-800 text-lg">
-                        我瞭解了
+                        開始使用
                     </button>
                 </div>
             </div>
