@@ -8,7 +8,7 @@ interface Props {
   lastUpdated: Date | null;
 }
 
-// 定義過濾器按鈕
+// 定義過濾器按鈕 (新增 '主動')
 const FILTERS = [
   { key: '高息', label: '高息' },
   { key: '市值', label: '市值' },
@@ -19,13 +19,13 @@ const FILTERS = [
   { key: '債券', label: '債券' },
 ];
 
-// 硬編碼分類對照表 (基於常見 ETF 屬性)
+// 硬編碼分類對照表 (依照使用者需求更新)
 const CATEGORY_MAPPING: Record<string, string[]> = {
-  '高息': ['0056', '00713', '00878', '00915', '00918', '00919', '00927', '00932', '00900'],
-  '市值': ['006208', '0050', '00690', '00850', '00905', '00912', '00921', '00922', '00928'],
-  '主題': ['00881', '00891', '00894', '00896', '00903', '00904', '00938', '00956', '00888', '00901'],
-  '主動': ['00947', '009802', '009803', '009808', '00980A', '00982A', '00984A'], // 假設部分新代碼為主動
-  '國外': ['00960', '00972', '00662', '00757', '00830', '00886'],
+  '高息': ['0056', '00713', '00731', '00878', '00915', '00918', '00919', '00932'],
+  '市值': ['00888', '00905', '00912', '00690', '00850', '00894', '00938', '009808'],
+  '主題': ['00904', '00927', '00947', '00891', '00727', '00896', '00903', '00921', '009802', '009803'],
+  '主動': ['00980A', '00981A', '00982A', '00983A', '00984A', '00985A', '00986A'],
+  '國外': ['00908', '00956', '00960', '00771', '00712', '00972'],
   // '月配' 與 '債券' 直接透過 CategoryKey 判斷
 };
 
@@ -414,7 +414,9 @@ const AnalysisView: React.FC<Props> = ({ etfs, lastUpdated }) => {
          {filteredEtfs.length > 0 ? (
              filteredEtfs.map(etf => {
                  const cardStyle = getCardStyle(etf);
-                 const estYieldDisplay = etf.estYield > 0 ? `${etf.estYield}%` : '-';
+                 const estYieldDisplay = etf.estYield > 0 
+                    ? `${etf.estYield}%` 
+                    : <span className="text-slate-300">-</span>;
                  
                  return (
                      <div key={etf.code} className={`rounded-lg p-2 shadow-sm border flex flex-col gap-0.5 ${cardStyle}`}>
@@ -452,7 +454,8 @@ const AnalysisView: React.FC<Props> = ({ etfs, lastUpdated }) => {
                             </div>
                          </div>
 
-                         {/* Row 3 */}
+                         {/* Row 3 - Consistent with Performance View */}
+                         {/* 標題 10px 細 / 內容 16px 細字 (font-light) */}
                          <div className="grid grid-cols-4 items-center gap-1 bg-white/40 -mx-2 px-2 py-1 rounded-b-lg mt-0.5 leading-tight">
                             <div className="flex flex-col">
                                 <span className="text-[10px] font-light text-slate-600">起始股價</span>
@@ -469,13 +472,12 @@ const AnalysisView: React.FC<Props> = ({ etfs, lastUpdated }) => {
                                 </span>
                             </div>
                             <div className="text-right flex justify-end">
-                                {/* Button g: Detail */}
+                                {/* Button g: Detail - 純圖示按鈕 (CircleAlert) 無文字 */}
                                 <button 
                                     onClick={() => setSelectedEtf(etf)}
-                                    className="flex items-center gap-1 justify-end"
+                                    className="w-8 h-8 flex items-center justify-center bg-white/60 text-slate-700 rounded-lg hover:bg-white hover:text-black transition-colors border border-black/5"
                                 >
-                                     <CircleAlert className="w-5 h-5 text-slate-400" />
-                                     <span className="text-[10px] font-light text-slate-400">詳細資料</span>
+                                     <CircleAlert className="w-5 h-5" />
                                 </button>
                             </div>
                          </div>

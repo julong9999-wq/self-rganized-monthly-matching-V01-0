@@ -312,19 +312,19 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
                         </div>
 
                         {/* 第 3 行: 起始股價, 預估殖利率, 含息報酬, [按鈕: CircleAlert 詳細資料] */}
-                        {/* 標題 10px 細 / 內容 18px 細字 (font-light) */}
+                        {/* 標題 10px 細 / 內容 16px 細字 (font-light) */}
                         <div className="grid grid-cols-4 items-center gap-1 bg-white/40 -mx-2 px-2 py-1 rounded-b-lg mt-0.5 leading-tight">
                             <div className="flex flex-col">
                                 <span className="text-[10px] font-light text-slate-600">起始股價</span>
-                                <span className="text-[18px] font-light text-slate-900">{etf.priceBase}</span>
+                                <span className="text-[16px] font-light text-slate-900">{etf.priceBase}</span>
                             </div>
                             <div className="flex flex-col text-right">
                                 <span className="text-[10px] font-light text-slate-600">預估殖利率</span>
-                                <span className="text-[18px] font-light text-slate-900">{estYieldDisplay}</span>
+                                <span className="text-[16px] font-light text-slate-900">{estYieldDisplay}</span>
                             </div>
                             <div className="flex flex-col text-right">
                                 <span className="text-[10px] font-light text-slate-600">含息報酬</span>
-                                <span className={`text-[18px] font-light ${etf.totalReturn >= 0 ? 'text-red-700' : 'text-green-700'}`}>
+                                <span className={`text-[16px] font-light ${etf.totalReturn >= 0 ? 'text-red-700' : 'text-green-700'}`}>
                                     {etf.totalReturn}%
                                 </span>
                             </div>
