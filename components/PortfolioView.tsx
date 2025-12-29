@@ -160,7 +160,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
         totalPortfolioCost += itemTotalCost;
         weightedReturnRateSum += itemTotalCost * (item.etf.returnRate || 0);
 
-        // --- A. 計算資產價值損益 ---
+        // --- A. 計算資產價值損益 (New) ---
         const itemMarketValue = totalShares * item.etf.priceCurrent;
         const itemProfitLoss = itemMarketValue - itemTotalCost;
         const itemProfitLossRate = itemTotalCost > 0 ? (itemProfitLoss / itemTotalCost) * 100 : 0;
@@ -312,7 +312,8 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
           </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 pt-1 scrollbar-hide space-y-2">
+      {/* Main Scrollable Area (加入 overflow-x-hidden 防止左右搖晃) */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 pt-1 scrollbar-hide space-y-2">
           
           {/* A2: Holdings (投資組合列表) */}
           {portfolio.length > 0 && (
@@ -481,7 +482,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
           {hasData && (
             <div className="pt-2 pb-4 space-y-3">
                 
-                {/* A. 資產價值損益 (New) */}
+                {/* A. 資產價值損益 (New: 放在最上方) */}
                 <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                      {/* Header (Accordion) */}
                      <div 
@@ -490,7 +491,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      >
                          <div className="flex items-center gap-2">
                              <div className="p-1.5 bg-indigo-100 rounded"><Wallet className="w-5 h-5 text-indigo-600" /></div>
-                             <h4 className="font-bold text-xl text-slate-800">資產價值損益</h4>
+                             <h4 className="font-bold text-xl text-slate-800">A. 資產價值損益</h4>
                          </div>
                          <div className="flex items-center gap-3">
                              {/* 總結顯示 */}
@@ -546,7 +547,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      >
                          <div className="flex items-center gap-2">
                              <div className="p-1.5 bg-amber-100 rounded"><Calculator className="w-5 h-5 text-amber-600" /></div>
-                             <h4 className="font-bold text-xl text-slate-800">預估股息試算</h4>
+                             <h4 className="font-bold text-xl text-slate-800">B. 預估股息試算</h4>
                          </div>
                          <div className="flex items-center gap-3">
                              {/* 總結顯示 */}
@@ -600,7 +601,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      >
                          <div className="flex items-center gap-2">
                              <div className="p-1.5 bg-emerald-100 rounded"><LineChart className="w-5 h-5 text-emerald-600" /></div>
-                             <h4 className="font-bold text-xl text-slate-800">資產增值預估</h4>
+                             <h4 className="font-bold text-xl text-slate-800">C. 資產增值預估</h4>
                          </div>
                          <div className="flex items-center gap-3">
                              <div className="flex flex-col items-end">
@@ -647,7 +648,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      )}
                 </div>
 
-                {/* 4. Charts */}
+                {/* 4. Charts (放在表格之後) */}
                 {/* Monthly Dividends Chart */}
                 <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
                     <div className="flex items-center gap-1.5 mb-4">
