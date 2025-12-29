@@ -9,7 +9,7 @@ import SheetConfigView from './components/SheetConfigView';
 import AnnouncementView from './components/AnnouncementView';
 import PlanningView from './components/PlanningView';
 import AnalysisView from './components/AnalysisView'; // Import the new view
-import { LayoutDashboard, PieChart, BrainCircuit, Bot, Megaphone, CheckCircle, AlertTriangle, Loader2, BarChart3, Settings, Key, CircleHelp, X, ExternalLink, ShieldCheck, Tag, Trash2, LogIn, Play, RefreshCcw, Info, BookOpen, Fingerprint, Mic, Plus } from 'lucide-react';
+import { LayoutDashboard, PieChart, BrainCircuit, Bot, Megaphone, CheckCircle, AlertTriangle, Loader2, BarChart3, Settings, Key, CircleHelp, X, ExternalLink, ShieldCheck, Tag, Trash2, LogIn, Play, RefreshCcw, Info, BookOpen, Fingerprint, Mic, Plus, MousePointerClick, TrendingUp } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -755,80 +755,114 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* --- Help Modal (操作說明手冊) --- */}
+      {/* --- Help Modal (軟體操作手冊) --- */}
       {showHelpModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
             <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                 <div className="bg-blue-50 px-6 py-4 border-b border-blue-100 flex justify-between items-center">
                     <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
-                        <BookOpen className="w-6 h-6" /> 系統操作說明
+                        <BookOpen className="w-6 h-6" /> 軟體操作手冊
                     </h3>
                     <button onClick={() => setShowHelpModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-7 h-7" /></button>
                 </div>
                 
-                <div className="p-6 overflow-y-auto space-y-8 scrollbar-hide">
+                <div className="p-6 overflow-y-auto space-y-8 scrollbar-hide text-slate-600">
                     
-                    {/* 1. 功能導覽 */}
-                    <div className="space-y-4">
-                        <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-l-4 border-blue-500 pl-2">
-                            <Info className="w-5 h-5 text-blue-500" /> 核心功能導覽
-                        </h4>
-                        <div className="grid grid-cols-1 gap-3">
-                            <div className="flex gap-3 items-start bg-slate-50 p-3 rounded-xl">
-                                <LayoutDashboard className="w-5 h-5 text-blue-600 mt-1 shrink-0" />
-                                <div>
-                                    <h5 className="font-bold text-slate-700">績效查詢</h5>
-                                    <p className="text-sm text-slate-500">瀏覽各類 ETF (季配/月配/債券) 的最新股價與殖利率。點擊 <Plus className="w-3 h-3 inline bg-emerald-100 text-emerald-600 rounded p-0.5" /> 可加入自選組合。</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-3 items-start bg-slate-50 p-3 rounded-xl">
-                                <PieChart className="w-5 h-5 text-blue-600 mt-1 shrink-0" />
-                                <div>
-                                    <h5 className="font-bold text-slate-700">自組月配 (Portfolio)</h5>
-                                    <p className="text-sm text-slate-500">管理您的持股。系統會自動試算「每月預估股息」與「資產成長曲線」。點擊卡片可展開編輯交易紀錄。</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-3 items-start bg-slate-50 p-3 rounded-xl">
-                                <BrainCircuit className="w-5 h-5 text-blue-600 mt-1 shrink-0" />
-                                <div>
-                                    <h5 className="font-bold text-slate-700">智慧規劃</h5>
-                                    <p className="text-sm text-slate-500">輸入預算與需求 (支援語音 <Mic className="w-3 h-3 inline" />)，AI 會推薦適合的投資組合配置。</p>
-                                </div>
-                            </div>
-                            <div className="flex gap-3 items-start bg-slate-50 p-3 rounded-xl">
-                                <BarChart3 className="w-5 h-5 text-blue-600 mt-1 shrink-0" />
-                                <div>
-                                    <h5 className="font-bold text-slate-700">分析資料</h5>
-                                    <p className="text-sm text-slate-500">提供進階篩選 (高息、市值、主題等)，並可查看歷史股價走勢圖表。</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* 2. 資料來源 */}
+                    {/* 1. 系統簡介 */}
                     <div className="space-y-3">
-                        <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-l-4 border-emerald-500 pl-2">
-                            <Fingerprint className="w-5 h-5 text-emerald-500" /> 資料設定
+                        <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-l-4 border-blue-500 pl-2">
+                            <Info className="w-5 h-5 text-blue-500" /> 系統簡介
                         </h4>
-                        <p className="text-sm text-slate-600 leading-relaxed">
-                            本系統需讀取 Google Sheets 發布的 CSV 資料。
-                            <br/>首次使用請確認網址已設定，系統會自動快取資料 15 分鐘。若需重設，請點擊左上角 <Settings className="w-3 h-3 inline" /> 圖示。
+                        <p className="text-sm leading-relaxed">
+                            本系統是專為台股 ETF 投資人設計的輔助工具，整合 Google Sheets 公開數據，提供「即時股價」、「配息試算」與「AI 智慧規劃」功能，協助您打造專屬的月配息投資組合。
                         </p>
                     </div>
 
-                    {/* 3. AI 金鑰 */}
+                    {/* 2. 初始設定 */}
                     <div className="space-y-3">
-                        <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-l-4 border-amber-500 pl-2">
-                            <Key className="w-5 h-5 text-amber-500" /> AI 金鑰設定
+                        <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-l-4 border-emerald-500 pl-2">
+                            <Settings className="w-5 h-5 text-emerald-500" /> 初始設定 (必讀)
                         </h4>
-                        <div className="bg-amber-50 p-4 rounded-xl text-sm text-amber-900 space-y-2">
-                            <p><strong>為什麼需要？</strong><br/>使用「智慧規劃」與「AI 診斷」功能需串接 Google Gemini 模型。</p>
-                            <p><strong>如何取得？</strong></p>
-                            <ol className="list-decimal pl-4 space-y-1">
-                                <li>點擊右上角 <Key className="w-3 h-3 inline" /> 按鈕。</li>
-                                <li>前往 Google AI Studio 申請免費 Key。</li>
-                                <li>貼上並儲存 (Key 僅存在您的瀏覽器中)。</li>
-                            </ol>
+                        <ul className="text-sm space-y-2 list-decimal pl-4">
+                            <li>
+                                <strong>設定資料來源</strong>：首次使用需輸入 Google Sheet 發布的 CSV 網址。點擊左上角 <Settings className="w-3 h-3 inline" /> 即可修改。
+                            </li>
+                            <li>
+                                <strong>設定 AI 金鑰</strong>：若要使用「智慧規劃」與「AI 診斷」，請點擊右上角 <Key className="w-3 h-3 inline" /> 設定 Gemini API Key (免費申請)。
+                            </li>
+                        </ul>
+                    </div>
+
+                    {/* 3. 核心功能操作 */}
+                    <div className="space-y-4">
+                        <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-l-4 border-amber-500 pl-2">
+                            <MousePointerClick className="w-5 h-5 text-amber-500" /> 五大核心功能
+                        </h4>
+                        
+                        {/* 功能 1 */}
+                        <div className="bg-slate-50 p-3 rounded-xl space-y-1">
+                            <h5 className="font-bold text-slate-700 flex items-center gap-2">
+                                <LayoutDashboard className="w-4 h-4 text-blue-600" /> 1. 績效查詢
+                            </h5>
+                            <p className="text-xs text-slate-500 ml-6">
+                                瀏覽各類 ETF (季配/月配/債券) 的最新行情。
+                                <br/>• <strong>加入自選</strong>：點擊右側 <Plus className="w-3 h-3 inline bg-emerald-100 text-emerald-600 rounded p-0.5" /> 按鈕。
+                                <br/>• <strong>詳細資料</strong>：點擊卡片左下的 <CircleHelp className="w-3 h-3 inline" /> 查看歷史配息。
+                            </p>
+                        </div>
+
+                        {/* 功能 2 */}
+                        <div className="bg-slate-50 p-3 rounded-xl space-y-1">
+                            <h5 className="font-bold text-slate-700 flex items-center gap-2">
+                                <PieChart className="w-4 h-4 text-blue-600" /> 2. 自組月配 (Portfolio)
+                            </h5>
+                            <p className="text-xs text-slate-500 ml-6">
+                                您的投資記帳本。系統會自動計算「每月預估股息」與「資產成長曲線」。
+                                <br/>• <strong>新增交易</strong>：展開卡片後點擊 <Plus className="w-3 h-3 inline" /> 輸入買入紀錄。
+                                <br/>• <strong>編輯/刪除</strong>：可修改或刪除錯誤的交易紀錄。
+                            </p>
+                        </div>
+
+                        {/* 功能 3 */}
+                        <div className="bg-slate-50 p-3 rounded-xl space-y-1">
+                            <h5 className="font-bold text-slate-700 flex items-center gap-2">
+                                <BrainCircuit className="w-4 h-4 text-blue-600" /> 3. 智慧規劃 (AI)
+                            </h5>
+                            <p className="text-xs text-slate-500 ml-6">
+                                輸入預算與需求 (支援語音 <Mic className="w-3 h-3 inline" />)，AI 會從資料庫中推薦適合的配置組合，並計算預估殖利率。
+                            </p>
+                        </div>
+
+                        {/* 功能 4 */}
+                        <div className="bg-slate-50 p-3 rounded-xl space-y-1">
+                            <h5 className="font-bold text-slate-700 flex items-center gap-2">
+                                <BarChart3 className="w-4 h-4 text-blue-600" /> 4. 分析資料
+                            </h5>
+                            <p className="text-xs text-slate-500 ml-6">
+                                提供進階篩選功能 (如：高息、市值、主題型 ETF)。
+                                <br/>• <strong>股價走勢圖</strong>：點擊列表中的「圖表」按鈕，可查看含息報酬走勢。
+                            </p>
+                        </div>
+
+                        {/* 功能 5 */}
+                        <div className="bg-slate-50 p-3 rounded-xl space-y-1">
+                            <h5 className="font-bold text-slate-700 flex items-center gap-2">
+                                <Bot className="w-4 h-4 text-blue-600" /> 5. AI 診斷
+                            </h5>
+                            <p className="text-xs text-slate-500 ml-6">
+                                AI 會針對您「自組月配」中的持股進行健檢，分析產業分散性與抗跌能力。
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* 4. 常見問題 */}
+                    <div className="space-y-3">
+                        <h4 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-l-4 border-slate-400 pl-2">
+                            <CircleHelp className="w-5 h-5 text-slate-500" /> 常見問題
+                        </h4>
+                        <div className="text-sm space-y-2">
+                            <p><strong>Q: 資料多久更新一次？</strong><br/><span className="text-slate-500">系統會自動快取資料 15 分鐘。若需強制更新，請重新整理頁面。</span></p>
+                            <p><strong>Q: 手機上語音輸入沒反應？</strong><br/><span className="text-slate-500">請確認瀏覽器 (Safari/Chrome) 已授權麥克風存取權限。</span></p>
                         </div>
                     </div>
 
@@ -836,7 +870,7 @@ const App: React.FC = () => {
                 
                 <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 text-center">
                     <button onClick={() => setShowHelpModal(false)} className="w-full bg-blue-900 text-white py-3.5 rounded-xl font-bold shadow-sm hover:bg-blue-800 text-lg">
-                        開始使用
+                        關閉手冊
                     </button>
                 </div>
             </div>
