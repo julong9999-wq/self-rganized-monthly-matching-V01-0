@@ -588,6 +588,35 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                     </div>
                                 </div>
                             ))}
+
+                            {/* Move Monthly Dividends Chart Here */}
+                            <div className="mt-4 pt-4 border-t border-slate-100">
+                                <div className="flex items-center gap-1.5 mb-4">
+                                    <div className="p-1 bg-blue-100 rounded"><BarChart3 className="w-3 h-3 text-blue-600" /></div>
+                                    <div className="flex flex-col"><h4 className="font-bold text-sm text-slate-800">每月預估股息分佈</h4></div>
+                                </div>
+                                <div className="flex items-end justify-between gap-1 h-48 pt-4 pb-2">
+                                    {analysisData.monthlyDividends.map((val, idx) => {
+                                        const heightPct = analysisData.maxMonthDiv > 0 ? (val / analysisData.maxMonthDiv) * 100 : 0;
+                                        const displayHeight = val > 0 ? Math.max(heightPct, 1) : 0;
+
+                                        return (
+                                            <div key={idx} className="flex-1 flex flex-col items-center gap-1 group h-full justify-end">
+                                                <div className="relative w-full flex items-end justify-center rounded-t-sm bg-slate-50 h-full">
+                                                    {val > 0 && (
+                                                        <div 
+                                                            className="w-full mx-0.5 bg-blue-500 rounded-t-sm transition-all duration-500 group-hover:bg-blue-600" 
+                                                            style={{ height: `${displayHeight}%` }}
+                                                        ></div>
+                                                    )}
+                                                    {val > 0 && <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 shadow pointer-events-none">${Math.round(val).toLocaleString()}</div>}
+                                                </div>
+                                                <span className="text-[10px] font-bold text-slate-400 scale-90">{idx + 1}月</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
                      )}
                 </div>
@@ -601,7 +630,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      >
                          <div className="flex items-center gap-2">
                              <div className="p-1.5 bg-emerald-100 rounded"><LineChart className="w-5 h-5 text-emerald-600" /></div>
-                             <h4 className="font-bold text-xl text-slate-800">C. 資產增值預估</h4>
+                             <h4 className="font-bold text-xl text-slate-800">C. 預估資產增值</h4>
                          </div>
                          <div className="flex items-center gap-3">
                              <div className="flex flex-col items-end">
@@ -644,73 +673,38 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                     </div>
                                 </div>
                             ))}
+
+                            {/* Move Growth Chart Here */}
+                            <div className="mt-4 pt-4 border-t border-slate-100">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="p-1 bg-emerald-100 rounded"><TrendingUp className="w-3 h-3 text-emerald-600" /></div>
+                                        <div className="flex flex-col"><h4 className="font-bold text-sm text-slate-800">每月預估績效成長</h4></div>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-0.5">
+                                        <div className="flex items-center gap-1"><div className="w-2 h-0.5 bg-emerald-500 rounded-full"></div><span className="text-[10px] text-slate-500">含息報酬</span></div>
+                                        <div className="flex items-center gap-1"><div className="w-2 h-0.5 bg-blue-400 rounded-full"></div><span className="text-[10px] text-slate-500">不含息報酬</span></div>
+                                    </div>
+                                </div>
+                                
+                                <div className="h-40 w-full relative pt-1">
+                                    <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                        <line x1="0" y1="0" x2="100" y2="0" stroke="#f1f5f9" strokeWidth="1" />
+                                        <line x1="0" y1="50" x2="100" y2="50" stroke="#f1f5f9" strokeWidth="1" />
+                                        <line x1="0" y1="100" x2="100" y2="100" stroke="#f1f5f9" strokeWidth="1" />
+                                        {(() => { const costY = getY(grandTotalCost); return <line x1="0" y1={costY} x2="100" y2={costY} stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="3" opacity="0.5" />; })()}
+                                        
+                                        {/* Blue Line: 不含息 (Market Value) - 修正線條寬度為 2 */}
+                                        {analysisData.currentMarketValueLine.length > 0 && <polyline fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points={analysisData.currentMarketValueLine.map((val, idx) => `${(idx/11)*100},${getY(val)}`).join(' ')} />}
+                                        
+                                        {/* Green Line: 含息 (Total Asset) - 修正線條寬度為 2.5 */}
+                                        {analysisData.totalAssetLine.length > 0 && <polyline fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={analysisData.totalAssetLine.map((val, idx) => `${(idx/11)*100},${getY(val)}`).join(' ')} />}
+                                    </svg>
+                                    <div className="flex justify-between mt-1 text-[10px] text-slate-400 font-bold px-1"><span>1月</span><span>6月</span><span>12月</span></div>
+                                </div>
+                            </div>
                         </div>
                      )}
-                </div>
-
-                {/* 4. Charts (放在表格之後) */}
-                {/* Monthly Dividends Chart */}
-                <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
-                    <div className="flex items-center gap-1.5 mb-4">
-                        <div className="p-1 bg-blue-100 rounded"><BarChart3 className="w-3 h-3 text-blue-600" /></div>
-                        <div className="flex flex-col"><h4 className="font-bold text-sm text-slate-800">每月預估股息</h4></div>
-                    </div>
-                    {/* 增加容器高度至 h-48 以確保顯示空間 */}
-                    <div className="flex items-end justify-between gap-1 h-48 pt-4 pb-2">
-                        {analysisData.monthlyDividends.map((val, idx) => {
-                            // 計算高度百分比，如果 maxMonthDiv 為 0，則高度為 0
-                            const heightPct = analysisData.maxMonthDiv > 0 ? (val / analysisData.maxMonthDiv) * 100 : 0;
-                            // 只要數值大於 0，強制給予至少 2px 的高度，避免看不見
-                            const displayHeight = val > 0 ? Math.max(heightPct, 1) : 0;
-
-                            return (
-                                <div key={idx} className="flex-1 flex flex-col items-center gap-1 group h-full justify-end">
-                                    <div className="relative w-full flex items-end justify-center rounded-t-sm bg-slate-50 h-full">
-                                        {/* 只有當有值的時候才渲染 bar */}
-                                        {val > 0 && (
-                                            <div 
-                                                className="w-full mx-0.5 bg-blue-500 rounded-t-sm transition-all duration-500 group-hover:bg-blue-600" 
-                                                style={{ height: `${displayHeight}%` }}
-                                            ></div>
-                                        )}
-                                        {/* Tooltip: 數值顯示 */}
-                                        {val > 0 && <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 shadow pointer-events-none">${Math.round(val).toLocaleString()}</div>}
-                                    </div>
-                                    <span className="text-[10px] font-bold text-slate-400 scale-90">{idx + 1}月</span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* Growth Chart (With Div vs Without Div) */}
-                <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-1.5">
-                            <div className="p-1 bg-emerald-100 rounded"><TrendingUp className="w-3 h-3 text-emerald-600" /></div>
-                            <div className="flex flex-col"><h4 className="font-bold text-sm text-slate-800">每月預估績效成長</h4></div>
-                        </div>
-                        <div className="flex flex-col items-end gap-0.5">
-                            <div className="flex items-center gap-1"><div className="w-2 h-0.5 bg-emerald-500 rounded-full"></div><span className="text-[10px] text-slate-500">含息報酬</span></div>
-                            <div className="flex items-center gap-1"><div className="w-2 h-0.5 bg-blue-400 rounded-full"></div><span className="text-[10px] text-slate-500">不含息報酬</span></div>
-                        </div>
-                    </div>
-                    
-                    <div className="h-40 w-full relative pt-1">
-                        <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-                            <line x1="0" y1="0" x2="100" y2="0" stroke="#f1f5f9" strokeWidth="1" />
-                            <line x1="0" y1="50" x2="100" y2="50" stroke="#f1f5f9" strokeWidth="1" />
-                            <line x1="0" y1="100" x2="100" y2="100" stroke="#f1f5f9" strokeWidth="1" />
-                            {(() => { const costY = getY(grandTotalCost); return <line x1="0" y1={costY} x2="100" y2={costY} stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="3" opacity="0.5" />; })()}
-                            
-                            {/* Blue Line: 不含息 (Market Value) - 修正線條寬度為 2 */}
-                            {analysisData.currentMarketValueLine.length > 0 && <polyline fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points={analysisData.currentMarketValueLine.map((val, idx) => `${(idx/11)*100},${getY(val)}`).join(' ')} />}
-                            
-                            {/* Green Line: 含息 (Total Asset) - 修正線條寬度為 2.5 */}
-                            {analysisData.totalAssetLine.length > 0 && <polyline fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={analysisData.totalAssetLine.map((val, idx) => `${(idx/11)*100},${getY(val)}`).join(' ')} />}
-                        </svg>
-                        <div className="flex justify-between mt-1 text-[10px] text-slate-400 font-bold px-1"><span>1月</span><span>6月</span><span>12月</span></div>
-                    </div>
                 </div>
             </div>
           )}
