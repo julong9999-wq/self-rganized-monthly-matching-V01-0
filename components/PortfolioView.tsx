@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { PortfolioItem, Transaction, EtfData } from '../types';
-import { Trash2, ChevronDown, ChevronUp, Edit3, Save, Plus, BarChart3, TrendingUp, Wallet, X, Calculator, LineChart, Minus } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, Edit3, Save, Plus, BarChart3, TrendingUp, Wallet, X, Calculator, LineChart, Minus, Check } from 'lucide-react';
 
 interface Props {
   portfolio: PortfolioItem[];
@@ -21,34 +21,30 @@ const getBondType = (code: string): string => {
     return 'AC'; 
 };
 
-// 輔助：取得配息月份 (0-11 代表 1-12月)
+// 輔助：取得配息月份
 const getDividendMonths = (category: string, code: string): number[] => {
     let type = category;
+    if (category === 'AE') type = getBondType(code);
     
-    // 1. 若為債券，先解析其細分類
-    if (category === 'AE') {
-         type = getBondType(code);
-    }
-    
-    // 2. 強制檢查常見月配股票/債券，避免 Category 漏標
     const monthlyCodes = ['00929','00939','00940','00934','00936','00943','00944','00946','00952','00961'];
-    if (monthlyCodes.some(x => code.includes(x))) {
-        type = 'AD';
-    }
+    if (monthlyCodes.some(x => code.includes(x))) type = 'AD';
 
-    // 3. 依照代號回傳月份索引 (0 = 1月, 11 = 12月)
     switch (type) {
-        case 'AA': return [0, 3, 6, 9];   // 季一: 1, 4, 7, 10 月
-        case 'AB': return [1, 4, 7, 10];  // 季二: 2, 5, 8, 11 月
-        case 'AC': return [2, 5, 8, 11];  // 季三: 3, 6, 9, 12 月
-        case 'AD': return Array.from({length: 12}, (_, i) => i); // 月配: 1-12 月
-        default: return [2, 5, 8, 11];    // 防呆預設 (季三)
+        case 'AA': return [0, 3, 6, 9];
+        case 'AB': return [1, 4, 7, 10];
+        case 'AC': return [2, 5, 8, 11];
+        case 'AD': return Array.from({length: 12}, (_, i) => i);
+        default: return [2, 5, 8, 11];
     }
 };
 
+// 輔助：取得卡片顏色樣式
 const getCardStyle = (etf: EtfData) => {
     let type = etf.category;
-    if (etf.category === 'AE') type = getBondType(etf.code) as any;
+    if (etf.category === 'AE') {
+        type = getBondType(etf.code) as any;
+    }
+
     switch (type) {
         case 'AA': return 'bg-blue-50 border-blue-200';
         case 'AB': return 'bg-emerald-50 border-emerald-200';
@@ -58,32 +54,16 @@ const getCardStyle = (etf: EtfData) => {
     }
 };
 
-// 強化版日期解析 (支援 YYYYMMDD, YYYY/MM/DD, YYYY-MM-DD)
-const parseDateSimple = (dateStr: string): Date | null => {
-    if (!dateStr) return null;
-    const cleanStr = dateStr.trim();
-    
-    // YYYYMMDD
-    if (/^\d{8}$/.test(cleanStr)) {
-         const y = parseInt(cleanStr.substring(0, 4));
-         const m = parseInt(cleanStr.substring(4, 6)) - 1;
-         const d = parseInt(cleanStr.substring(6, 8));
-         return new Date(y, m, d);
-    }
-    
-    // YYYY/MM/DD or YYYY-MM-DD or YYYY.MM.DD
-    const standardDate = new Date(cleanStr.replace(/\./g, '/').replace(/-/g, '/'));
-    return isNaN(standardDate.getTime()) ? null : standardDate;
-};
-
 const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDeleteTransaction, onAddTransaction }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingTxId, setEditingTxId] = useState<string | null>(null);
   const [addingToId, setAddingToId] = useState<string | null>(null);
+  
+  // Forms
   const [editForm, setEditForm] = useState<Transaction | null>(null);
   const [addForm, setAddForm] = useState<Transaction | null>(null);
   
-  // 新增：控制三個分析表格展開狀態 (預設全關閉)
+  // 分析表格展開狀態 (預設關閉)
   const [expandedAnalysis, setExpandedAnalysis] = useState<string[]>([]);
 
   const toggleAnalysis = (key: string) => {
@@ -97,62 +77,111 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
     setEditingTxId(null); setEditForm(null); setAddingToId(null); setAddForm(null);
   };
 
+  // --- 新增/編輯 邏輯 ---
+  // 規則: 預設帶入最近日期, 張數 XX, 單價: 前一日收盤價 (這裡用 etf.priceCurrent 替代), 成交總價: 用 50 萬計算可買整樹張數
   const startAdd = (item: PortfolioItem) => {
       const today = new Date().toISOString().split('T')[0].replace(/-/g, '/');
+      const price = item.etf.priceCurrent || 10; // 防呆
+      
+      // 計算 50 萬預算可買的整張數
+      const budget = 500000;
+      const shares = Math.floor(budget / price / 1000) * 1000;
+      const finalShares = shares > 0 ? shares : 1000;
+      const totalAmount = Math.round(finalShares * price);
+
       setAddingToId(item.id);
-      setAddForm({ id: Date.now().toString(), date: today, shares: 1000, price: item.etf.priceCurrent || 0, totalAmount: 1000 * (item.etf.priceCurrent || 0) });
+      setAddForm({ 
+          id: Date.now().toString(), 
+          date: today, 
+          shares: finalShares, 
+          price: price, 
+          totalAmount: totalAmount 
+      });
       setExpandedId(item.id);
   };
 
-  const handleAddChange = (field: keyof Transaction, value: string | number) => {
-      if (!addForm) return;
-      let newVal = Number(value);
-      if (field === 'date') newVal = value as any;
-      const updated = { ...addForm, [field]: newVal };
-      if (field === 'shares' || field === 'price') updated.totalAmount = Number(updated.shares) * Number(updated.price);
-      setAddForm(updated);
+  const handleFormChange = (
+      formType: 'add' | 'edit', 
+      field: keyof Transaction, 
+      value: string
+  ) => {
+      const setter = formType === 'add' ? setAddForm : setEditForm;
+      const currentForm = formType === 'add' ? addForm : editForm;
+      if (!currentForm) return;
+
+      let newVal: string | number = value;
+      if (field !== 'date') {
+          newVal = Number(value);
+      }
+
+      const updated = { ...currentForm, [field]: newVal };
+
+      // 自動連動計算：
+      // 如果改了張數或單價 -> 算總價
+      if (field === 'shares' || field === 'price') {
+          updated.totalAmount = Math.round(Number(updated.shares) * Number(updated.price));
+      }
+      // 如果改了總價 -> 不反推單價/張數 (讓使用者自由輸入，避免除不盡小數點問題)
+
+      setter(updated);
   };
 
-  const saveAdd = (etfCode: string) => { if (addForm) { onAddTransaction(etfCode, addForm); setAddingToId(null); setAddForm(null); } };
-  const cancelAdd = () => { setAddingToId(null); setAddForm(null); };
-
-  const startEdit = (tx: Transaction) => { setEditingTxId(tx.id); setEditForm({ ...tx }); setAddingToId(null); };
+  const saveAdd = (etfCode: string) => { 
+      if (addForm) { 
+          // 檢查 0
+          if (addForm.shares === 0 || addForm.price === 0) {
+              alert("數值不能為 0");
+              return;
+          }
+          onAddTransaction(etfCode, addForm); 
+          setAddingToId(null); 
+          setAddForm(null); 
+      } 
+  };
   
-  const handleEditChange = (field: keyof Transaction, value: string | number) => {
-    if (!editForm) return;
-    let newVal = Number(value);
-    if (field === 'date') newVal = value as any;
-    const updated = { ...editForm, [field]: newVal };
-    if (field === 'shares' || field === 'price') {
-        updated.totalAmount = Number(updated.shares) * Number(updated.price);
-    }
-    setEditForm(updated);
+  const startEdit = (tx: Transaction) => { 
+      setEditingTxId(tx.id); 
+      setEditForm({ ...tx }); 
+      setAddingToId(null); 
+  };
+  
+  const saveEdit = (etfCode: string) => { 
+      if (editForm) { 
+          if (editForm.shares === 0 || editForm.price === 0) {
+              alert("數值不能為 0");
+              return;
+          }
+          onUpdateTransaction(etfCode, editForm); 
+          setEditingTxId(null); 
+          setEditForm(null); 
+      } 
   };
 
-  const saveEdit = (etfCode: string) => { if (editForm) { onUpdateTransaction(etfCode, editForm); setEditingTxId(null); setEditForm(null); } };
-  const cancelEdit = () => { setEditingTxId(null); setEditForm(null); };
-  const handleDeleteClick = (etfCode: string, txId: string) => { if (window.confirm("確定刪除?")) onDeleteTransaction(etfCode, txId); };
+  const handleDeleteClick = (etfCode: string, txId: string) => { 
+      if (window.confirm("確定刪除此筆交易?")) onDeleteTransaction(etfCode, txId); 
+  };
 
+  // --- 計算核心 ---
   const grandTotalCost = portfolio.reduce((sum, item) => sum + item.transactions.reduce((t, tx) => t + tx.totalAmount, 0), 0);
   const holdingsCount = portfolio.length;
+  // 計算總張數 (投資張數)
+  const totalPortfolioShares = portfolio.reduce((sum, item) => sum + item.transactions.reduce((t, tx) => t + tx.shares, 0), 0) / 1000; // 單位：張
 
-  // --- 分析邏輯核心 (Updated Logic) ---
   const analysisData = useMemo(() => {
     const monthlyDividends = Array(12).fill(0);
-    const breakdownList: any[] = []; // B. 股息明細
-    const assetGrowthList: any[] = []; // C. 資產增值明細
-    const valueProfitLossList: any[] = []; // A. 資產價值損益明細 (New)
+    const valueProfitLossList: any[] = [];
+    const dividendIncomeList: any[] = [];
+    const assetGrowthList: any[] = [];
 
     let weightedReturnRateSum = 0;
     let totalPortfolioCost = 0;
     
-    // 1. 計算目前的總市值
+    // 目前總市值
     const currentMarketValue = portfolio.reduce((sum, item) => {
         const totalShares = item.transactions.reduce((s, tx) => s + tx.shares, 0);
         return sum + (totalShares * item.etf.priceCurrent);
     }, 0);
 
-    // 2. 遍歷每個 ETF 計算配息與報酬
     portfolio.forEach(item => {
         const itemTotalCost = item.transactions.reduce((sum, tx) => sum + tx.totalAmount, 0);
         const totalShares = item.transactions.reduce((s, tx) => s + tx.shares, 0);
@@ -160,7 +189,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
         totalPortfolioCost += itemTotalCost;
         weightedReturnRateSum += itemTotalCost * (item.etf.returnRate || 0);
 
-        // --- A. 計算資產價值損益 (New) ---
+        // A. 資產價值損益
         const itemMarketValue = totalShares * item.etf.priceCurrent;
         const itemProfitLoss = itemMarketValue - itemTotalCost;
         const itemProfitLossRate = itemTotalCost > 0 ? (itemProfitLoss / itemTotalCost) * 100 : 0;
@@ -174,51 +203,34 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
             profitLossRate: itemProfitLossRate
         });
 
-        // 取得配息月份
+        // 配息月份
         let months = getDividendMonths(item.etf.category, item.etf.code);
-        if (!months || months.length === 0) {
-            months = [2, 5, 8, 11];
-        }
+        if (!months || months.length === 0) months = [2, 5, 8, 11];
         const frequency = Math.max(months.length, 1);
 
-        // --- B. 股息計算邏輯 ---
+        // B. 股息收益累積 (這裡沿用預估邏輯，顯示為股息收入)
         let annualDividend = 0;
-        let usedYield = item.etf.dividendYield;
-        let isCalculated = false;
-
         if (item.etf.dividendYield > 0) {
             annualDividend = itemTotalCost * (item.etf.dividendYield / 100);
         }
         
-        // Fallback 機制
-        if (annualDividend === 0 && item.etf.dividends && item.etf.dividends.length > 0) {
-            const sortedDivs = [...item.etf.dividends].sort((a,b) => {
-                const dA = parseDateSimple(a.date)?.getTime() || 0;
-                const dB = parseDateSimple(b.date)?.getTime() || 0;
-                return dB - dA;
+        // 分配到各月份
+        if (annualDividend > 0) {
+            const amountPerDistribution = annualDividend / frequency;
+            months.forEach(idx => {
+                monthlyDividends[idx] += amountPerDistribution;
             });
-
-            if (sortedDivs[0] && sortedDivs[0].amount > 0) {
-                const latestAmount = sortedDivs[0].amount;
-                annualDividend = latestAmount * frequency * totalShares;
-                
-                if (itemTotalCost > 0) {
-                    usedYield = parseFloat(((annualDividend / itemTotalCost) * 100).toFixed(2));
-                    isCalculated = true;
-                }
-            }
         }
 
-        breakdownList.push({
+        dividendIncomeList.push({
             id: item.id,
             name: item.etf.name,
             totalCost: itemTotalCost,
-            yield: usedYield,
-            isCalculated: isCalculated,
-            estimatedIncome: annualDividend
+            yield: item.etf.dividendYield, // 股息利率
+            income: annualDividend // 股息收入
         });
 
-        // --- C. 資產增值預估邏輯 ---
+        // C. 預估資產增值
         const estimatedGainLoss = itemTotalCost * (item.etf.returnRate / 100);
         assetGrowthList.push({
             id: item.id,
@@ -227,19 +239,11 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
             returnRate: item.etf.returnRate,
             estimatedGainLoss: estimatedGainLoss
         });
-
-        // 分配到各月份 (長條圖數據)
-        if (annualDividend > 0) {
-            const amountPerDistribution = annualDividend / frequency;
-            months.forEach(idx => {
-                monthlyDividends[idx] += amountPerDistribution;
-            });
-        }
     });
 
     const portfolioAvgReturnRate = totalPortfolioCost > 0 ? (weightedReturnRateSum / totalPortfolioCost) : 0;
     
-    // 3. 預估績效成長
+    // Growth Chart Data
     const currentMarketValueLine = Array(12).fill(0).map((_, idx) => {
         const month = idx + 1;
         const growthFactor = (portfolioAvgReturnRate / 100) * (month / 12);
@@ -255,69 +259,58 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
     const allValues = [grandTotalCost, currentMarketValue, ...totalAssetLine].filter(v => v > 0);
     const maxY = Math.max(...allValues) * 1.05;
     const minY = Math.min(...allValues) * 0.95;
-    const estimatedAnnualIncome = monthlyDividends.reduce((a, b) => a + b, 0);
-
-    const totalEstimatedAssetGain = assetGrowthList.reduce((sum, item) => sum + item.estimatedGainLoss, 0);
-    
-    // 總未實現損益
-    const totalUnrealizedProfitLoss = currentMarketValue - grandTotalCost;
+    const maxMonthDiv = Math.max(...monthlyDividends);
 
     return { 
-        monthlyDividends, 
-        currentMarketValueLine, 
-        totalAssetLine, 
-        maxMonthDiv: Math.max(...monthlyDividends), 
-        maxY, 
-        minY, 
-        estimatedAnnualIncome, 
-        finalProjectedValue: totalAssetLine[11], 
-        portfolioAvgReturnRate, 
-        currentMarketValue,
-        breakdownList, // B
-        assetGrowthList, // C
-        valueProfitLossList, // A (New)
-        totalEstimatedAssetGain,
-        totalUnrealizedProfitLoss
+        valueProfitLossList,
+        dividendIncomeList,
+        assetGrowthList,
+        monthlyDividends,
+        currentMarketValueLine,
+        totalAssetLine,
+        maxMonthDiv,
+        maxY,
+        minY,
+        totalUnrealizedProfitLoss: currentMarketValue - grandTotalCost
     };
   }, [portfolio, grandTotalCost]);
 
-  const hasData = analysisData.estimatedAnnualIncome > 0 || portfolio.length > 0;
+  const hasData = portfolio.length > 0;
   
   const getY = (val: number) => {
       const range = (analysisData.maxY - analysisData.minY) || 1;
       return 100 - (((val - analysisData.minY) / range) * 100);
   };
 
-  // 顏色輔助：台股紅漲綠跌
   const getColor = (val: number) => val > 0 ? 'text-red-600' : val < 0 ? 'text-green-600' : 'text-slate-600';
 
   return (
     <div className="flex flex-col h-full bg-slate-50">
       
-      {/* A1: Statistics */}
-      <div className="bg-white shadow-sm border-b border-slate-200 p-2 shrink-0 z-20">
-          <div className="grid grid-cols-3 gap-1 text-center">
+      {/* A1. 統計畫面 (固定) */}
+      <div className="bg-white shadow-sm border-b border-slate-200 p-3 shrink-0 z-20">
+          <div className="grid grid-cols-3 gap-1 text-center divide-x divide-slate-100">
               <div className="flex flex-col items-center">
                   <span className="text-[14px] font-light text-slate-500">投資總額</span>
                   <span className="text-[18px] font-bold text-slate-800">${grandTotalCost.toLocaleString()}</span>
               </div>
-              <div className="flex flex-col items-center border-l border-slate-100">
-                  <span className="text-[14px] font-light text-slate-500">預估年息</span>
-                  <span className="text-[18px] font-bold text-yellow-600">${Math.round(analysisData.estimatedAnnualIncome).toLocaleString()}</span>
-              </div>
-              <div className="flex flex-col items-center border-l border-slate-100">
+              <div className="flex flex-col items-center">
                   <span className="text-[14px] font-light text-slate-500">投資檔數</span>
                   <span className="text-[18px] font-bold text-slate-800">{holdingsCount}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                  <span className="text-[14px] font-light text-slate-500">投資張數</span>
+                  <span className="text-[18px] font-bold text-slate-800">{Math.round(totalPortfolioShares).toLocaleString()}</span>
               </div>
           </div>
       </div>
 
-      {/* Main Scrollable Area (加入 overflow-x-hidden 防止左右搖晃) */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 pt-1 scrollbar-hide space-y-2">
+      {/* Scrollable Area */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 space-y-3 scrollbar-hide">
           
-          {/* A2: Holdings (投資組合列表) */}
+          {/* A2. 持股明細 (子母表) */}
           {portfolio.length > 0 && (
-            <div className="space-y-1">
+            <div className="space-y-2">
                 {portfolio.map((item) => {
                     const totalShares = item.transactions.reduce((s, t) => s + t.shares, 0);
                     const totalCost = item.transactions.reduce((s, t) => s + t.totalAmount, 0);
@@ -326,151 +319,125 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                     const style = getCardStyle(item.etf);
 
                     return (
-                        <div key={item.id} className={`rounded-lg shadow-sm border ${style} ${isExpanded ? 'ring-1 ring-blue-200' : ''}`}>
-                            <div onClick={() => toggleExpand(item.id)} className="p-2 flex flex-col gap-1 cursor-pointer">
-                                {/* 第一行 */}
-                                <div className="flex justify-between items-center border-b border-black/5 pb-1">
+                        <div key={item.id} className={`rounded-lg shadow-sm border overflow-hidden ${style} ${isExpanded ? 'ring-1 ring-blue-300' : ''}`}>
+                            {/* 母表 (Parent) */}
+                            <div onClick={() => toggleExpand(item.id)} className="p-3 flex flex-col gap-2 cursor-pointer relative">
+                                {/* Row 1: 代碼 / 名稱 / 新增按鈕 */}
+                                <div className="flex items-center justify-between">
                                     <div className="flex items-baseline gap-2 overflow-hidden flex-1">
-                                        <span className="text-[20px] font-bold text-blue-900">{item.id}</span>
+                                        <span className="text-[20px] font-bold text-blue-700">{item.id}</span>
                                         <span className="text-[18px] font-light text-slate-500 truncate">{item.etf.name}</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <button onClick={(e) => { e.stopPropagation(); startAdd(item); }} className="w-6 h-6 flex justify-center items-center rounded-full bg-white text-blue-800 border border-blue-100 shadow-sm"><Plus className="w-4 h-4" /></button>
-                                        <div className="text-slate-400">{isExpanded ? <ChevronUp className="w-4 h-4"/> : <ChevronDown className="w-4 h-4"/>}</div>
-                                    </div>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); startAdd(item); }} 
+                                        className="w-8 h-8 flex justify-center items-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors shadow-sm"
+                                    >
+                                        <Plus className="w-5 h-5" />
+                                    </button>
                                 </div>
                                 
-                                {/* 第二行 */}
-                                <div className="grid grid-cols-4 gap-1">
-                                    <div className="text-center">
-                                        <div className="text-[12px] text-slate-500 font-light">累計張數</div>
-                                        <div className="text-[16px] font-bold text-slate-800">{totalShares.toLocaleString()}</div>
+                                {/* Row 2: 累計張數 / 平均成本 / 投資金額總計 */}
+                                <div className="grid grid-cols-3 gap-2 border-t border-black/5 pt-2">
+                                    <div className="flex flex-col">
+                                        <span className="text-[12px] font-light text-slate-500">累計張數</span>
+                                        <span className="text-[18px] font-bold text-slate-800">{(totalShares/1000).toLocaleString()}</span>
                                     </div>
-                                    <div className="text-center">
-                                        <div className="text-[12px] text-slate-500 font-light">平均成本</div>
-                                        <div className="text-[16px] font-bold text-slate-800">{avgCost}</div>
+                                    <div className="flex flex-col text-center">
+                                        <span className="text-[12px] font-light text-slate-500">平均成本</span>
+                                        <span className="text-[18px] font-bold text-slate-800">{avgCost}</span>
                                     </div>
-                                    <div className="text-center">
-                                        <div className="text-[12px] text-slate-500 font-light">殖利率</div>
-                                        <div className="text-[16px] font-bold text-slate-800">{item.etf.dividendYield}%</div>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="text-[12px] text-slate-500 font-light">總計</div>
-                                        <div className="text-[16px] font-bold text-slate-800">${Math.round(totalCost).toLocaleString()}</div>
+                                    <div className="flex flex-col text-right">
+                                        <span className="text-[12px] font-light text-slate-500">投資金額總計</span>
+                                        <span className="text-[18px] font-bold text-slate-800">${Math.round(totalCost).toLocaleString()}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* 子表: 交易明細 */}
+                            {/* 子表 (Transactions) */}
                             {isExpanded && (
-                                <div className="border-t border-black/5 bg-white/60 p-2 rounded-b-lg">
-                                    {/* Add Form */}
+                                <div className="bg-white border-t border-slate-200 px-3 py-3 space-y-3">
+                                    
+                                    {/* 新增模式 */}
                                     {addingToId === item.id && addForm && (
-                                        <div className="bg-white rounded p-2 mb-2 border border-blue-200 shadow-sm">
-                                            <div className="text-xs font-bold text-blue-800 mb-1">新增交易</div>
-                                            <div className="grid grid-cols-2 gap-2 mb-2">
-                                                <div className="flex flex-col">
-                                                    <label className="text-[12px] font-light text-slate-500">日期</label>
-                                                    <input value={addForm.date} onChange={(e) => handleAddChange('date', e.target.value)} className="border rounded px-2 py-1 text-[16px] font-bold text-slate-800" placeholder="YYYY/MM/DD" />
+                                        <div className="bg-slate-50 p-3 rounded-lg border border-blue-200 mb-2 shadow-inner">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-xs font-bold text-blue-600">新增交易</span>
+                                                <button onClick={() => setAddingToId(null)}><X className="w-4 h-4 text-slate-400"/></button>
+                                            </div>
+                                            {/* Row 1: 日期, 成交總價 */}
+                                            <div className="grid grid-cols-2 gap-3 mb-2">
+                                                <div>
+                                                    <label className="text-[12px] text-slate-500 block mb-0.5">日期</label>
+                                                    <input value={addForm.date} onChange={(e) => handleFormChange('add', 'date', e.target.value)} className="w-full text-[16px] p-1 border rounded" />
                                                 </div>
-                                                <div className="flex flex-col">
-                                                     <label className="text-[12px] font-light text-slate-500">張數</label>
-                                                     <input type="number" value={addForm.shares} onChange={(e) => handleAddChange('shares', e.target.value)} className="border rounded px-2 py-1 text-[16px] font-bold text-slate-800 text-right" />
-                                                </div>
-                                                <div className="flex flex-col">
-                                                     <label className="text-[12px] font-light text-slate-500">單價</label>
-                                                     <input type="number" value={addForm.price} onChange={(e) => handleAddChange('price', e.target.value)} className="border rounded px-2 py-1 text-[16px] font-bold text-slate-800 text-right" />
-                                                </div>
-                                                <div className="flex flex-col">
-                                                     <label className="text-[12px] font-light text-slate-500">成交總價</label>
-                                                     <input type="number" value={addForm.totalAmount} onChange={(e) => handleAddChange('totalAmount', e.target.value)} className="border rounded px-2 py-1 text-[16px] font-bold text-slate-800 text-right" />
+                                                <div>
+                                                    <label className="text-[12px] text-slate-500 block mb-0.5 text-right">成交總價</label>
+                                                    <input type="number" value={addForm.totalAmount} onChange={(e) => handleFormChange('add', 'totalAmount', e.target.value)} className="w-full text-[16px] p-1 border rounded text-right" />
                                                 </div>
                                             </div>
-                                            <div className="flex gap-2 justify-end">
-                                                <button onClick={cancelAdd} className="px-3 py-1 text-sm bg-slate-100 rounded text-slate-600">取消</button>
-                                                <button onClick={() => saveAdd(item.id)} className="px-3 py-1 text-sm bg-blue-600 text-white rounded">儲存</button>
+                                            {/* Row 2: 張數, 單價 */}
+                                            <div className="grid grid-cols-2 gap-3 mb-3">
+                                                <div>
+                                                    <label className="text-[12px] text-slate-500 block mb-0.5">張數</label>
+                                                    <input type="number" value={addForm.shares} onChange={(e) => handleFormChange('add', 'shares', e.target.value)} className="w-full text-[16px] p-1 border rounded" />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[12px] text-slate-500 block mb-0.5 text-right">單價</label>
+                                                    <input type="number" value={addForm.price} onChange={(e) => handleFormChange('add', 'price', e.target.value)} className="w-full text-[16px] p-1 border rounded text-right" />
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => setAddingToId(null)} className="flex-1 py-1.5 bg-white border border-slate-300 rounded text-slate-600 text-sm">取消</button>
+                                                <button onClick={() => saveAdd(item.id)} className="flex-1 py-1.5 bg-blue-600 text-white rounded text-sm font-bold">儲存</button>
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* Transaction Table */}
-                                    <table className="w-full text-left">
-                                        <thead>
-                                            <tr className="border-b border-black/5 text-[12px] font-light text-slate-500">
-                                                <th className="py-1 font-light w-[25%]">日期</th>
-                                                <th className="py-1 text-right font-light w-[30%]">張數 / 單價</th>
-                                                <th className="py-1 text-right font-light w-[30%]">成交總價</th>
-                                                <th className="py-1 text-right font-light w-[15%]">操作</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {item.transactions.map((tx) => {
-                                                // 編輯模式
-                                                if (editingTxId === tx.id && editForm) {
-                                                    return (
-                                                        <tr key={tx.id} className="bg-blue-50/50">
-                                                            <td colSpan={4} className="py-2">
-                                                                <div className="p-2 border border-blue-200 rounded-lg bg-white shadow-sm flex flex-col gap-2">
-                                                                    <div className="flex justify-between items-center border-b border-blue-100 pb-1 mb-1">
-                                                                        <span className="text-xs font-bold text-blue-800">編輯交易</span>
-                                                                        <button onClick={cancelEdit}><X className="w-4 h-4 text-slate-400"/></button>
-                                                                    </div>
-                                                                    <div className="grid grid-cols-2 gap-3">
-                                                                        <div className="flex flex-col">
-                                                                            <label className="text-[12px] font-light text-slate-500 mb-0.5">日期</label>
-                                                                            <input value={editForm.date} onChange={(e) => handleEditChange('date', e.target.value)} className="w-full border rounded px-2 py-1.5 text-[16px] font-bold text-slate-800 bg-slate-50 focus:bg-white outline-none" />
-                                                                        </div>
-                                                                        <div className="flex flex-col">
-                                                                            <label className="text-[12px] font-light text-slate-500 mb-0.5 text-right">張數</label>
-                                                                            <input type="number" value={editForm.shares} onChange={(e) => handleEditChange('shares', e.target.value)} className="w-full border rounded px-2 py-1.5 text-[16px] font-bold text-slate-800 text-right bg-slate-50 focus:bg-white outline-none" />
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="grid grid-cols-2 gap-3">
-                                                                         <div className="flex flex-col">
-                                                                            <label className="text-[12px] font-light text-slate-500 mb-0.5">單價</label>
-                                                                            <input type="number" value={editForm.price} onChange={(e) => handleEditChange('price', e.target.value)} className="w-full border rounded px-2 py-1.5 text-[16px] font-bold text-slate-800 bg-slate-50 focus:bg-white outline-none" />
-                                                                        </div>
-                                                                        <div className="flex flex-col">
-                                                                            <label className="text-[12px] font-light text-slate-500 mb-0.5 text-right">成交總價</label>
-                                                                            <input type="number" value={editForm.totalAmount} onChange={(e) => handleEditChange('totalAmount', e.target.value)} className="w-full border rounded px-2 py-1.5 text-[16px] font-bold text-slate-800 text-right bg-slate-50 focus:bg-white outline-none" />
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="flex justify-end pt-2 border-t border-slate-100 mt-1">
-                                                                        <button onClick={() => saveEdit(item.id)} className="flex items-center gap-1 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-sm hover:bg-blue-700 active:scale-95 transition-all">
-                                                                            <Save className="w-4 h-4" />
-                                                                            <span className="text-sm font-bold">儲存修改</span>
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                }
+                                    {/* 交易清單 */}
+                                    {item.transactions.map((tx) => {
+                                        const isEditing = editingTxId === tx.id && editForm;
+                                        
+                                        if (isEditing) {
+                                            return (
+                                                <div key={tx.id} className="bg-slate-50 p-3 rounded-lg border border-blue-200 shadow-inner">
+                                                     <div className="flex justify-between items-center mb-2">
+                                                        <span className="text-xs font-bold text-blue-600">修改交易</span>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3 mb-2">
+                                                        <div><label className="text-[12px] text-slate-500 block">日期</label><input value={editForm!.date} onChange={(e) => handleFormChange('edit', 'date', e.target.value)} className="w-full text-[16px] border rounded px-1" /></div>
+                                                        <div><label className="text-[12px] text-slate-500 block text-right">成交總價</label><input type="number" value={editForm!.totalAmount} onChange={(e) => handleFormChange('edit', 'totalAmount', e.target.value)} className="w-full text-[16px] border rounded px-1 text-right" /></div>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3 mb-3">
+                                                        <div><label className="text-[12px] text-slate-500 block">張數</label><input type="number" value={editForm!.shares} onChange={(e) => handleFormChange('edit', 'shares', e.target.value)} className="w-full text-[16px] border rounded px-1" /></div>
+                                                        <div><label className="text-[12px] text-slate-500 block text-right">單價</label><input type="number" value={editForm!.price} onChange={(e) => handleFormChange('edit', 'price', e.target.value)} className="w-full text-[16px] border rounded px-1 text-right" /></div>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => setEditingTxId(null)} className="flex-1 py-1.5 bg-white border border-slate-300 rounded text-slate-600 text-sm">取消</button>
+                                                        <button onClick={() => saveEdit(item.id)} className="flex-1 py-1.5 bg-blue-600 text-white rounded text-sm font-bold">儲存</button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
 
-                                                // 顯示模式
-                                                return (
-                                                    <tr key={tx.id} className="border-b border-black/5 last:border-0 hover:bg-black/5 transition-colors">
-                                                        <td className="py-2 text-[14px] font-bold text-slate-700">{tx.date}</td>
-                                                        <td className="py-2 text-right">
-                                                            <div className="flex flex-col items-end">
-                                                                <span className="text-[16px] font-bold text-slate-900 leading-none">{tx.shares}</span>
-                                                                <span className="text-[12px] font-light text-slate-400 mt-0.5">@{tx.price}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="py-2 text-right text-[16px] font-bold text-slate-900">
-                                                            ${Math.round(tx.totalAmount).toLocaleString()}
-                                                        </td>
-                                                        <td className="py-2 text-right">
-                                                            <div className="flex justify-end gap-1">
-                                                                <button onClick={(e)=>{e.stopPropagation(); startEdit(tx);}} className="p-1.5 bg-slate-100 rounded text-blue-600 hover:bg-blue-100 transition-colors"><Edit3 className="w-4 h-4"/></button>
-                                                                <button onClick={(e)=>{e.stopPropagation(); handleDeleteClick(item.id, tx.id);}} className="p-1.5 bg-slate-100 rounded text-red-400 hover:bg-red-100 transition-colors"><Trash2 className="w-4 h-4"/></button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                        return (
+                                            <div key={tx.id} className="border-b border-slate-100 last:border-0 pb-2 mb-2 last:pb-0 last:mb-0">
+                                                {/* Row 1: 日期 / 成交總價 / 刪除 */}
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <span className="text-[12px] font-light text-slate-500 w-20">日期</span>
+                                                    <span className="text-[14px] text-slate-700 flex-1 text-right pr-3 font-mono">{tx.date}</span>
+                                                    <span className="text-[14px] font-light text-slate-700 w-24 text-right">${Math.round(tx.totalAmount).toLocaleString()}</span>
+                                                    <button onClick={() => handleDeleteClick(item.id, tx.id)} className="ml-2 p-1 text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
+                                                </div>
+                                                {/* Row 2: 張數 / 單價 / 修改 */}
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-[12px] font-light text-slate-500 w-20">張數</span>
+                                                    <span className="text-[14px] text-slate-700 flex-1 text-right pr-3">{tx.shares.toLocaleString()}</span>
+                                                    <span className="text-[14px] font-light text-slate-700 w-24 text-right">@{tx.price}</span>
+                                                    <button onClick={() => startEdit(tx)} className="ml-2 px-2 py-0.5 bg-red-50 text-red-600 rounded text-[12px] border border-red-100">修改</button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -480,56 +447,42 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
           )}
 
           {hasData && (
-            <div className="pt-2 pb-4 space-y-3">
+            <div className="pt-2 pb-6 space-y-3">
                 
-                {/* A. 資產價值損益 (New: 放在最上方) */}
+                {/* A3-A. 資產價值損益 */}
                 <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                     {/* Header (Accordion) */}
-                     <div 
-                        onClick={() => toggleAnalysis('PL')}
-                        className="p-4 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50 transition-colors"
-                     >
+                     <div onClick={() => toggleAnalysis('PL')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
                          <div className="flex items-center gap-2">
-                             <div className="p-1.5 bg-indigo-100 rounded"><Wallet className="w-5 h-5 text-indigo-600" /></div>
-                             <h4 className="font-bold text-xl text-slate-800">A. 資產價值損益</h4>
+                             <div className="p-1 bg-indigo-100 rounded"><Wallet className="w-4 h-4 text-indigo-600" /></div>
+                             <h4 className="font-bold text-lg text-slate-800">A. 資產價值損益</h4>
                          </div>
-                         <div className="flex items-center gap-3">
-                             {/* 總結顯示 */}
-                             <div className="flex flex-col items-end">
-                                 <span className={`font-bold text-lg ${getColor(analysisData.totalUnrealizedProfitLoss)}`}>
-                                     {analysisData.totalUnrealizedProfitLoss > 0 ? '+' : ''}{Math.round(analysisData.totalUnrealizedProfitLoss).toLocaleString()}
-                                 </span>
-                             </div>
-                             {expandedAnalysis.includes('PL') ? <Minus className="w-5 h-5 text-slate-400"/> : <Plus className="w-5 h-5 text-slate-400"/>}
+                         <div className="flex items-center gap-2">
+                             <span className={`font-bold text-base ${getColor(analysisData.totalUnrealizedProfitLoss)}`}>
+                                 {analysisData.totalUnrealizedProfitLoss > 0 ? '+' : ''}{Math.round(analysisData.totalUnrealizedProfitLoss).toLocaleString()}
+                             </span>
+                             {expandedAnalysis.includes('PL') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
                          </div>
                      </div>
-                     
-                     {/* Content */}
                      {expandedAnalysis.includes('PL') && (
-                        <div className="px-4 pb-4 border-t border-slate-100 pt-3 space-y-3 animate-[fadeIn_0.2s_ease-out]">
-                             <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded">
-                                計算邏輯：(目前股價 × 股數) - 總成本
-                             </p>
+                        <div className="px-3 pb-3 border-t border-slate-100 pt-2 space-y-2 animate-[fadeIn_0.2s_ease-out]">
                              {analysisData.valueProfitLossList.map((row) => (
-                                <div key={row.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                    <div className="flex justify-between items-center mb-2 border-b border-slate-200/50 pb-1">
-                                        <div className="font-bold text-lg text-slate-800">{row.name}</div>
+                                <div key={row.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col gap-1">
+                                    {/* Row 1: Name / P&L */}
+                                    <div className="flex justify-between items-center">
+                                        <div className="text-[14px] text-slate-500 font-normal">{row.name}</div>
+                                        <div className={`text-[14px] font-normal ${getColor(row.profitLoss)}`}>
+                                            {row.profitLoss > 0 ? '+' : ''}{Math.round(row.profitLoss).toLocaleString()} ({row.profitLossRate.toFixed(1)}%)
+                                        </div>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-2 text-sm">
-                                        <div className="flex flex-col">
-                                            <span className="text-[12px] text-slate-500 font-light">總成本</span>
-                                            <span className="text-[16px] font-bold text-slate-700">${Math.round(row.totalCost).toLocaleString()}</span>
+                                    {/* Row 2: Cost / Market Value */}
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[12px] font-light text-slate-400">購買總價</span>
+                                            <span className="text-[14px] text-slate-500 font-light">${Math.round(row.totalCost).toLocaleString()}</span>
                                         </div>
-                                        <div className="flex flex-col text-center">
-                                            <span className="text-[12px] text-slate-500 font-light">現值</span>
-                                            <span className="text-[16px] font-bold text-slate-700">${Math.round(row.marketValue).toLocaleString()}</span>
-                                        </div>
-                                        <div className="flex flex-col text-right">
-                                            <span className="text-[12px] text-slate-500 font-light">損益</span>
-                                            <span className={`text-[16px] font-bold ${getColor(row.profitLoss)}`}>
-                                                {row.profitLoss > 0 ? '+' : ''}{Math.round(row.profitLoss).toLocaleString()}
-                                                <span className="text-xs ml-1 font-normal opacity-80">({row.profitLossRate.toFixed(1)}%)</span>
-                                            </span>
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[12px] font-light text-slate-400">現值總價</span>
+                                            <span className="text-[14px] text-slate-500 font-light">${Math.round(row.marketValue).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -538,80 +491,53 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      )}
                 </div>
 
-                {/* B. 預估股息試算 (原: 預估股息試算明細) */}
+                {/* A3-B. 股息收益累積 */}
                 <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                     {/* Header */}
-                     <div 
-                        onClick={() => toggleAnalysis('DIV')}
-                        className="p-4 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50 transition-colors"
-                     >
+                     <div onClick={() => toggleAnalysis('DIV')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
                          <div className="flex items-center gap-2">
-                             <div className="p-1.5 bg-amber-100 rounded"><Calculator className="w-5 h-5 text-amber-600" /></div>
-                             <h4 className="font-bold text-xl text-slate-800">B. 預估股息試算</h4>
+                             <div className="p-1 bg-amber-100 rounded"><Calculator className="w-4 h-4 text-amber-600" /></div>
+                             <h4 className="font-bold text-lg text-slate-800">B. 股息收益累積</h4>
                          </div>
-                         <div className="flex items-center gap-3">
-                             {/* 總結顯示 */}
-                             <div className="flex flex-col items-end">
-                                 <span className="font-bold text-lg text-amber-600">
-                                     ${Math.round(analysisData.estimatedAnnualIncome).toLocaleString()}
-                                 </span>
-                             </div>
-                             {expandedAnalysis.includes('DIV') ? <Minus className="w-5 h-5 text-slate-400"/> : <Plus className="w-5 h-5 text-slate-400"/>}
-                         </div>
+                         {expandedAnalysis.includes('DIV') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
                      </div>
-
-                     {/* Content */}
                      {expandedAnalysis.includes('DIV') && (
-                        <div className="px-4 pb-4 border-t border-slate-100 pt-3 space-y-3 animate-[fadeIn_0.2s_ease-out]">
-                            {analysisData.breakdownList.map((row) => (
-                                <div key={row.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                    <div className="flex justify-between items-center mb-2 border-b border-slate-200/50 pb-1">
-                                        <div className="font-bold text-lg text-slate-800">{row.name}</div>
-                                        <div className="text-xs text-slate-400 font-mono">{row.id}</div>
+                        <div className="px-3 pb-3 border-t border-slate-100 pt-2 space-y-2 animate-[fadeIn_0.2s_ease-out]">
+                            {analysisData.dividendIncomeList.map((row) => (
+                                <div key={row.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col gap-1">
+                                    {/* Row 1: Name / Cost */}
+                                    <div className="flex justify-between items-center">
+                                        <div className="text-[14px] text-slate-500 font-normal">{row.name}</div>
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[12px] font-light text-slate-400">購買總價</span>
+                                            <span className="text-[14px] text-slate-500 font-light">${Math.round(row.totalCost).toLocaleString()}</span>
+                                        </div>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-2 text-sm">
-                                        <div className="flex flex-col">
-                                            <span className="text-[12px] text-slate-500 font-light">購買總價</span>
-                                            <span className="text-[16px] font-bold text-slate-700">${Math.round(row.totalCost).toLocaleString()}</span>
+                                    {/* Row 2: Yield / Income */}
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[12px] font-light text-slate-400">股息利率</span>
+                                            <span className="text-[14px] text-slate-500 font-light">{row.yield}%</span>
                                         </div>
-                                        <div className="flex flex-col text-center">
-                                            <span className="text-[12px] text-slate-500 font-light">殖利率</span>
-                                            <div className="flex items-center justify-center gap-1">
-                                                <span className="text-[16px] font-bold text-slate-700">{row.yield}%</span>
-                                                {row.isCalculated && <span className="text-[9px] text-red-400 bg-red-50 px-1 rounded">推算</span>}
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-col text-right">
-                                            <span className="text-[12px] text-slate-500 font-light">預估年息</span>
-                                            <span className="text-[16px] font-bold text-amber-600">${Math.round(row.estimatedIncome).toLocaleString()}</span>
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[12px] font-light text-slate-400">股息收入</span>
+                                            <span className="text-[14px] text-slate-500 font-light">${Math.round(row.income).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </div>
                             ))}
-
-                            {/* Move Monthly Dividends Chart Here */}
-                            <div className="mt-4 pt-4 border-t border-slate-100">
-                                <div className="flex items-center gap-1.5 mb-4">
-                                    <div className="p-1 bg-blue-100 rounded"><BarChart3 className="w-3 h-3 text-blue-600" /></div>
-                                    <div className="flex flex-col"><h4 className="font-bold text-sm text-slate-800">每月預估股息分佈</h4></div>
-                                </div>
-                                <div className="flex items-end justify-between gap-1 h-48 pt-4 pb-2">
+                            
+                            {/* Chart: Monthly Dividends */}
+                            <div className="mt-4 pt-2 border-t border-slate-100">
+                                <div className="text-[12px] text-slate-400 font-light mb-2 text-center">每月預估股息分佈</div>
+                                <div className="flex items-end justify-between gap-1 h-32 pb-2">
                                     {analysisData.monthlyDividends.map((val, idx) => {
                                         const heightPct = analysisData.maxMonthDiv > 0 ? (val / analysisData.maxMonthDiv) * 100 : 0;
-                                        const displayHeight = val > 0 ? Math.max(heightPct, 1) : 0;
-
                                         return (
-                                            <div key={idx} className="flex-1 flex flex-col items-center gap-1 group h-full justify-end">
-                                                <div className="relative w-full flex items-end justify-center rounded-t-sm bg-slate-50 h-full">
-                                                    {val > 0 && (
-                                                        <div 
-                                                            className="w-full mx-0.5 bg-blue-500 rounded-t-sm transition-all duration-500 group-hover:bg-blue-600" 
-                                                            style={{ height: `${displayHeight}%` }}
-                                                        ></div>
-                                                    )}
-                                                    {val > 0 && <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 shadow pointer-events-none">${Math.round(val).toLocaleString()}</div>}
+                                            <div key={idx} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
+                                                <div className="w-full bg-blue-100 rounded-t-sm relative" style={{ height: `${Math.max(heightPct, 1)}%` }}>
+                                                    {val > 0 && <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] text-slate-600 opacity-0 group-hover:opacity-100">{Math.round(val/1000)}k</div>}
                                                 </div>
-                                                <span className="text-[10px] font-bold text-slate-400 scale-90">{idx + 1}月</span>
+                                                <span className="text-[9px] text-slate-400">{idx + 1}</span>
                                             </div>
                                         );
                                     })}
@@ -621,52 +547,36 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      )}
                 </div>
 
-                {/* C. 資產增值預估 (原: 資產增值預估分析) */}
+                {/* A3-C. 預估資產增值 */}
                 <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                     {/* Header */}
-                     <div 
-                        onClick={() => toggleAnalysis('GAIN')}
-                        className="p-4 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50 transition-colors"
-                     >
+                     <div onClick={() => toggleAnalysis('GAIN')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
                          <div className="flex items-center gap-2">
-                             <div className="p-1.5 bg-emerald-100 rounded"><LineChart className="w-5 h-5 text-emerald-600" /></div>
-                             <h4 className="font-bold text-xl text-slate-800">C. 預估資產增值</h4>
+                             <div className="p-1 bg-emerald-100 rounded"><LineChart className="w-4 h-4 text-emerald-600" /></div>
+                             <h4 className="font-bold text-lg text-slate-800">C. 預估資產增值</h4>
                          </div>
-                         <div className="flex items-center gap-3">
-                             <div className="flex flex-col items-end">
-                                 <span className={`font-bold text-lg ${getColor(analysisData.totalEstimatedAssetGain)}`}>
-                                     {analysisData.totalEstimatedAssetGain > 0 ? '+' : ''}{Math.round(analysisData.totalEstimatedAssetGain).toLocaleString()}
-                                 </span>
-                             </div>
-                             {expandedAnalysis.includes('GAIN') ? <Minus className="w-5 h-5 text-slate-400"/> : <Plus className="w-5 h-5 text-slate-400"/>}
-                         </div>
+                         {expandedAnalysis.includes('GAIN') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
                      </div>
-                    
-                     {/* Content */}
                      {expandedAnalysis.includes('GAIN') && (
-                        <div className="px-4 pb-4 border-t border-slate-100 pt-3 space-y-3 animate-[fadeIn_0.2s_ease-out]">
-                            <p className="text-xs text-slate-500 bg-slate-50 p-2 rounded">
-                                計算邏輯：總成本 × (今年報酬率)
-                             </p>
+                        <div className="px-3 pb-3 border-t border-slate-100 pt-2 space-y-2 animate-[fadeIn_0.2s_ease-out]">
                             {analysisData.assetGrowthList.map((row) => (
-                                <div key={row.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                    <div className="flex justify-between items-center mb-2 border-b border-slate-200/50 pb-1">
-                                        <div className="font-bold text-lg text-slate-800">{row.name}</div>
+                                <div key={row.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col gap-1">
+                                    {/* Row 1: Name / Cost */}
+                                    <div className="flex justify-between items-center">
+                                        <div className="text-[14px] text-slate-500 font-normal">{row.name}</div>
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[12px] font-light text-slate-400">購買總價</span>
+                                            <span className="text-[14px] text-slate-500 font-light">${Math.round(row.totalCost).toLocaleString()}</span>
+                                        </div>
                                     </div>
-                                    <div className="grid grid-cols-3 gap-2 text-sm">
-                                        <div className="flex flex-col">
-                                            <span className="text-[12px] text-slate-500 font-light">購買總價</span>
-                                            <span className="text-[16px] font-bold text-slate-700">${Math.round(row.totalCost).toLocaleString()}</span>
+                                    {/* Row 2: Return Rate / Est Gain */}
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[12px] font-light text-slate-400">報酬率(參考)</span>
+                                            <span className="text-[14px] text-slate-500 font-light">{row.returnRate}%</span>
                                         </div>
-                                        <div className="flex flex-col text-center">
-                                            <span className="text-[12px] text-slate-500 font-light">年報酬(參考)</span>
-                                            <span className={`text-[16px] font-bold ${getColor(row.returnRate)}`}>
-                                                {row.returnRate}%
-                                            </span>
-                                        </div>
-                                        <div className="flex flex-col text-right">
-                                            <span className="text-[12px] text-slate-500 font-light">預估增減</span>
-                                            <span className={`text-[16px] font-bold ${getColor(row.estimatedGainLoss)}`}>
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[12px] font-light text-slate-400">預估增減</span>
+                                            <span className={`text-[14px] font-light ${getColor(row.estimatedGainLoss)}`}>
                                                 {row.estimatedGainLoss > 0 ? '+' : ''}{Math.round(row.estimatedGainLoss).toLocaleString()}
                                             </span>
                                         </div>
@@ -674,33 +584,24 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                 </div>
                             ))}
 
-                            {/* Move Growth Chart Here */}
-                            <div className="mt-4 pt-4 border-t border-slate-100">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-1.5">
-                                        <div className="p-1 bg-emerald-100 rounded"><TrendingUp className="w-3 h-3 text-emerald-600" /></div>
-                                        <div className="flex flex-col"><h4 className="font-bold text-sm text-slate-800">每月預估績效成長</h4></div>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-0.5">
-                                        <div className="flex items-center gap-1"><div className="w-2 h-0.5 bg-emerald-500 rounded-full"></div><span className="text-[10px] text-slate-500">含息報酬</span></div>
-                                        <div className="flex items-center gap-1"><div className="w-2 h-0.5 bg-blue-400 rounded-full"></div><span className="text-[10px] text-slate-500">不含息報酬</span></div>
+                            {/* Chart: Growth Line */}
+                            <div className="mt-4 pt-2 border-t border-slate-100">
+                                <div className="flex justify-between items-center mb-2 px-1">
+                                    <span className="text-[12px] text-slate-400 font-light">每月預估績效成長</span>
+                                    <div className="flex gap-2">
+                                        <div className="flex items-center gap-1"><div className="w-2 h-0.5 bg-emerald-500"></div><span className="text-[9px] text-slate-400">含息</span></div>
+                                        <div className="flex items-center gap-1"><div className="w-2 h-0.5 bg-blue-400"></div><span className="text-[9px] text-slate-400">不含息</span></div>
                                     </div>
                                 </div>
-                                
-                                <div className="h-40 w-full relative pt-1">
+                                <div className="h-32 w-full relative">
                                     <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
                                         <line x1="0" y1="0" x2="100" y2="0" stroke="#f1f5f9" strokeWidth="1" />
                                         <line x1="0" y1="50" x2="100" y2="50" stroke="#f1f5f9" strokeWidth="1" />
                                         <line x1="0" y1="100" x2="100" y2="100" stroke="#f1f5f9" strokeWidth="1" />
-                                        {(() => { const costY = getY(grandTotalCost); return <line x1="0" y1={costY} x2="100" y2={costY} stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="3" opacity="0.5" />; })()}
                                         
-                                        {/* Blue Line: 不含息 (Market Value) - 修正線條寬度為 2 */}
-                                        {analysisData.currentMarketValueLine.length > 0 && <polyline fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points={analysisData.currentMarketValueLine.map((val, idx) => `${(idx/11)*100},${getY(val)}`).join(' ')} />}
-                                        
-                                        {/* Green Line: 含息 (Total Asset) - 修正線條寬度為 2.5 */}
-                                        {analysisData.totalAssetLine.length > 0 && <polyline fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={analysisData.totalAssetLine.map((val, idx) => `${(idx/11)*100},${getY(val)}`).join(' ')} />}
+                                        {analysisData.currentMarketValueLine.length > 0 && <polyline fill="none" stroke="#60a5fa" strokeWidth="1.5" points={analysisData.currentMarketValueLine.map((val, idx) => `${(idx/11)*100},${getY(val)}`).join(' ')} />}
+                                        {analysisData.totalAssetLine.length > 0 && <polyline fill="none" stroke="#10b981" strokeWidth="1.5" points={analysisData.totalAssetLine.map((val, idx) => `${(idx/11)*100},${getY(val)}`).join(' ')} />}
                                     </svg>
-                                    <div className="flex justify-between mt-1 text-[10px] text-slate-400 font-bold px-1"><span>1月</span><span>6月</span><span>12月</span></div>
                                 </div>
                             </div>
                         </div>
