@@ -949,11 +949,11 @@ const App: React.FC = () => {
             <button onClick={() => setActiveTab('performance')} className={`flex flex-col items-center justify-center h-full gap-1 transition-colors ${activeTab === 'performance' ? 'text-yellow-400' : 'text-slate-300 hover:text-white'}`}>
                 <LayoutDashboard className="w-5 h-5" /><span className="text-[10px] font-medium whitespace-nowrap">績效查詢</span>
             </button>
-            <button onClick={() => setActiveTab('portfolio')} className={`flex flex-col items-center justify-center h-full gap-1 transition-colors ${activeTab === 'portfolio' ? 'text-yellow-400' : 'text-slate-300 hover:text-white'}`}>
-                <PieChart className="w-5 h-5" /><span className="text-[10px] font-medium whitespace-nowrap">自組月配</span>
-            </button>
             <button onClick={() => setActiveTab('analysis')} className={`flex flex-col items-center justify-center h-full gap-1 transition-colors ${activeTab === 'analysis' ? 'text-yellow-400' : 'text-slate-300 hover:text-white'}`}>
                 <BarChart3 className="w-5 h-5" /><span className="text-[10px] font-medium whitespace-nowrap">分析資料</span>
+            </button>
+            <button onClick={() => setActiveTab('portfolio')} className={`flex flex-col items-center justify-center h-full gap-1 transition-colors ${activeTab === 'portfolio' ? 'text-yellow-400' : 'text-slate-300 hover:text-white'}`}>
+                <PieChart className="w-5 h-5" /><span className="text-[10px] font-medium whitespace-nowrap">自組月配</span>
             </button>
             <button onClick={() => setActiveTab('planning')} className={`flex flex-col items-center justify-center h-full gap-1 transition-colors ${activeTab === 'planning' ? 'text-yellow-400' : 'text-slate-300 hover:text-white'}`}>
                 <BrainCircuit className="w-5 h-5" /><span className="text-[10px] font-medium whitespace-nowrap">智慧規劃</span>

@@ -10,12 +10,29 @@ interface Props {
   onAddTransaction: (etfCode: string, tx: Transaction) => void;
 }
 
+// 內部表單狀態介面 (全部使用字串以支援千分位輸入)
+interface FormState {
+    id: string;
+    date: string;
+    shares: string;
+    price: string;
+    totalAmount: string;
+}
+
 // --- Helpers ---
 
 const formatMoney = (val: number) => Math.round(val).toLocaleString('en-US');
 const formatShare = (val: number) => Math.round(val).toLocaleString('en-US');
 const formatPrice = (val: number) => val.toFixed(2);
 const formatPercent = (val: number) => val.toFixed(2);
+
+// 解析帶有逗號的數值字串
+const parseRaw = (val: string | number): number => {
+    if (typeof val === 'number') return val;
+    if (!val) return 0;
+    return parseFloat(val.replace(/,/g, ''));
+};
+
 const formatDateDisplay = (dateStr: string) => {
     if(!dateStr) return '';
     const clean = dateStr.replace(/-/g, '/').replace(/\./g, '/');
@@ -100,9 +117,9 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
   const [editingTxId, setEditingTxId] = useState<string | null>(null);
   const [addingToId, setAddingToId] = useState<string | null>(null);
   
-  // Forms
-  const [editForm, setEditForm] = useState<Transaction | null>(null);
-  const [addForm, setAddForm] = useState<Transaction | null>(null);
+  // Forms (String based for formatting)
+  const [editForm, setEditForm] = useState<FormState | null>(null);
+  const [addForm, setAddForm] = useState<FormState | null>(null);
   
   // Analysis Expanded State
   const [expandedAnalysis, setExpandedAnalysis] = useState<string[]>([]);
@@ -133,9 +150,9 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
       setAddForm({ 
           id: Date.now().toString(), 
           date: today, 
-          shares: finalShares, 
-          price: price, 
-          totalAmount: totalAmount 
+          shares: formatShare(finalShares), // 帶入千分位
+          price: price.toString(), 
+          totalAmount: formatMoney(totalAmount) // 帶入千分位
       });
       // 確保展開以顯示表單
       if (expandedId !== item.id) setExpandedId(item.id);
@@ -143,46 +160,73 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
 
   const handleFormChange = (
       formType: 'add' | 'edit', 
-      field: keyof Transaction, 
+      field: keyof FormState, 
       value: string
   ) => {
       const setter = formType === 'add' ? setAddForm : setEditForm;
       const currentForm = formType === 'add' ? addForm : editForm;
       if (!currentForm) return;
 
-      let newVal: string | number = value;
-      if (field !== 'date') {
-          newVal = Number(value);
-      }
+      const updated = { ...currentForm, [field]: value };
 
-      const updated = { ...currentForm, [field]: newVal };
-
-      // 自動連動計算：
-      // 如果使用者改了 張數 或 單價，則自動算 總價
+      // 自動連動計算 (需要先去除千分位符號進行計算)
       if (field === 'shares' || field === 'price') {
-          updated.totalAmount = Math.round(Number(updated.shares) * Number(updated.price));
+          const rawShares = parseRaw(updated.shares);
+          const rawPrice = parseRaw(updated.price);
+          if (!isNaN(rawShares) && !isNaN(rawPrice)) {
+              updated.totalAmount = formatMoney(Math.round(rawShares * rawPrice));
+          }
       }
-      // 如果使用者改了 總價，**不** 反算單價或張數 (保留彈性)
-
+      
       setter(updated);
   };
 
   const saveAdd = (etfCode: string) => { 
       if (addForm) { 
-          if (addForm.shares === 0 || addForm.price === 0) { alert("數值不能為 0"); return; }
-          onAddTransaction(etfCode, addForm); 
+          const shares = parseRaw(addForm.shares);
+          const price = parseRaw(addForm.price);
+          const totalAmount = parseRaw(addForm.totalAmount);
+
+          if (shares === 0 || price === 0) { alert("數值不能為 0"); return; }
+          
+          onAddTransaction(etfCode, {
+              id: addForm.id,
+              date: addForm.date,
+              shares,
+              price,
+              totalAmount
+          }); 
           setAddingToId(null); setAddForm(null); 
       } 
   };
   
   const startEdit = (tx: Transaction) => { 
-      setEditingTxId(tx.id); setEditForm({ ...tx }); setAddingToId(null); 
+      setEditingTxId(tx.id); 
+      setEditForm({ 
+          id: tx.id,
+          date: tx.date,
+          shares: formatShare(tx.shares),
+          price: tx.price.toString(),
+          totalAmount: formatMoney(tx.totalAmount)
+      }); 
+      setAddingToId(null); 
   };
   
   const saveEdit = (etfCode: string) => { 
       if (editForm) { 
-          if (editForm.shares === 0 || editForm.price === 0) { alert("數值不能為 0"); return; }
-          onUpdateTransaction(etfCode, editForm); 
+          const shares = parseRaw(editForm.shares);
+          const price = parseRaw(editForm.price);
+          const totalAmount = parseRaw(editForm.totalAmount);
+
+          if (shares === 0 || price === 0) { alert("數值不能為 0"); return; }
+
+          onUpdateTransaction(etfCode, {
+              id: editForm.id,
+              date: editForm.date,
+              shares,
+              price,
+              totalAmount
+          }); 
           setEditingTxId(null); setEditForm(null); 
       } 
   };
@@ -457,24 +501,22 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                             <div className="grid grid-cols-2 gap-3 mb-2">
                                                 <div>
                                                     <label className="text-[12px] text-slate-500 block mb-0.5 font-light">日期</label>
-                                                    <input value={addForm.date} onChange={(e) => handleFormChange('add', 'date', e.target.value)} className="w-full text-[16px] p-1 border rounded bg-white text-slate-700 font-normal" placeholder="YYYY/MM/DD"/>
+                                                    <input type="text" value={addForm.date} onChange={(e) => handleFormChange('add', 'date', e.target.value)} className="w-full text-[16px] p-1 border rounded bg-white text-slate-700 font-normal" placeholder="YYYY/MM/DD"/>
                                                 </div>
                                                 <div>
                                                     <label className="text-[12px] text-slate-500 block mb-0.5 text-right font-light">成交總價</label>
-                                                    <input type="number" value={addForm.totalAmount} onChange={(e) => handleFormChange('add', 'totalAmount', e.target.value)} className="w-full text-[16px] p-1 border rounded text-right bg-white text-slate-700 font-normal" />
-                                                    <div className="text-[10px] text-slate-400 text-right mt-0.5">${formatMoney(addForm.totalAmount)}</div>
+                                                    <input type="text" value={addForm.totalAmount} onChange={(e) => handleFormChange('add', 'totalAmount', e.target.value)} className="w-full text-[16px] p-1 border rounded text-right bg-white text-slate-700 font-normal" />
                                                 </div>
                                             </div>
                                             {/* Row 2: 股數, 單價 */}
                                             <div className="grid grid-cols-2 gap-3 mb-3">
                                                 <div>
                                                     <label className="text-[12px] text-slate-500 block mb-0.5 font-light">股數</label>
-                                                    <input type="number" value={addForm.shares} onChange={(e) => handleFormChange('add', 'shares', e.target.value)} className="w-full text-[16px] p-1 border rounded bg-white text-slate-700 font-normal" />
-                                                    <div className="text-[10px] text-slate-400 mt-0.5">{formatShare(addForm.shares)} 股</div>
+                                                    <input type="text" value={addForm.shares} onChange={(e) => handleFormChange('add', 'shares', e.target.value)} className="w-full text-[16px] p-1 border rounded bg-white text-slate-700 font-normal" />
                                                 </div>
                                                 <div>
                                                     <label className="text-[12px] text-slate-500 block mb-0.5 text-right font-light">單價</label>
-                                                    <input type="number" value={addForm.price} onChange={(e) => handleFormChange('add', 'price', e.target.value)} className="w-full text-[16px] p-1 border rounded text-right bg-white text-slate-700 font-normal" />
+                                                    <input type="text" value={addForm.price} onChange={(e) => handleFormChange('add', 'price', e.target.value)} className="w-full text-[16px] p-1 border rounded text-right bg-white text-slate-700 font-normal" />
                                                 </div>
                                             </div>
                                             <div className="flex gap-2">
@@ -494,21 +536,19 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                                 <div key={tx.id} className="bg-red-50 p-3 rounded-lg border border-red-300 shadow-sm">
                                                     {/* Row 1: 日期, 成交總價 */}
                                                     <div className="grid grid-cols-2 gap-3 mb-2">
-                                                        <div><label className="text-[12px] text-slate-500 block font-light">日期</label><input value={editForm!.date} onChange={(e) => handleFormChange('edit', 'date', e.target.value)} className="w-full text-[16px] border rounded px-1 bg-white text-slate-700 font-normal" /></div>
+                                                        <div><label className="text-[12px] text-slate-500 block font-light">日期</label><input type="text" value={editForm!.date} onChange={(e) => handleFormChange('edit', 'date', e.target.value)} className="w-full text-[16px] border rounded px-1 bg-white text-slate-700 font-normal" /></div>
                                                         <div>
                                                             <label className="text-[12px] text-slate-500 block text-right font-light">成交總價</label>
-                                                            <input type="number" value={editForm!.totalAmount} onChange={(e) => handleFormChange('edit', 'totalAmount', e.target.value)} className="w-full text-[16px] border rounded px-1 text-right bg-white text-slate-700 font-normal" />
-                                                            <div className="text-[10px] text-slate-400 text-right mt-0.5">${formatMoney(editForm!.totalAmount)}</div>
+                                                            <input type="text" value={editForm!.totalAmount} onChange={(e) => handleFormChange('edit', 'totalAmount', e.target.value)} className="w-full text-[16px] border rounded px-1 text-right bg-white text-slate-700 font-normal" />
                                                         </div>
                                                     </div>
                                                     {/* Row 2: 股數, 單價 */}
                                                     <div className="grid grid-cols-2 gap-3 mb-3">
                                                         <div>
                                                             <label className="text-[12px] text-slate-500 block font-light">股數</label>
-                                                            <input type="number" value={editForm!.shares} onChange={(e) => handleFormChange('edit', 'shares', e.target.value)} className="w-full text-[16px] border rounded px-1 bg-white text-slate-700 font-normal" />
-                                                            <div className="text-[10px] text-slate-400 mt-0.5">{formatShare(editForm!.shares)} 股</div>
+                                                            <input type="text" value={editForm!.shares} onChange={(e) => handleFormChange('edit', 'shares', e.target.value)} className="w-full text-[16px] border rounded px-1 bg-white text-slate-700 font-normal" />
                                                         </div>
-                                                        <div><label className="text-[12px] text-slate-500 block text-right font-light">單價</label><input type="number" value={editForm!.price} onChange={(e) => handleFormChange('edit', 'price', e.target.value)} className="w-full text-[16px] border rounded px-1 text-right bg-white text-slate-700 font-normal" /></div>
+                                                        <div><label className="text-[12px] text-slate-500 block text-right font-light">單價</label><input type="text" value={editForm!.price} onChange={(e) => handleFormChange('edit', 'price', e.target.value)} className="w-full text-[16px] border rounded px-1 text-right bg-white text-slate-700 font-normal" /></div>
                                                     </div>
                                                     <div className="flex gap-2">
                                                         <button onClick={() => setEditingTxId(null)} className="flex-1 py-1.5 bg-white border border-slate-300 rounded text-slate-600 text-sm">取消</button>
@@ -549,17 +589,17 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
           {hasData && (
             <div className="pt-2 pb-6 space-y-3">
                 
-                {/* A3-A. 資產價值損益 (標題含總計) */}
+                {/* A3-A. 資產價值損益 (標題單行 左右對齊) */}
                 <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                      <div onClick={() => toggleAnalysis('A')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
-                         <div className="flex items-center gap-2">
-                             <div className="p-1 bg-indigo-100 rounded"><Wallet className="w-4 h-4 text-indigo-600" /></div>
-                             <div className="flex items-baseline gap-2">
-                                 <h4 className="font-bold text-base text-slate-800">A. 資產價值損益</h4>
-                                 <span className={`text-sm font-bold ${getColor(analysisData.totalUnrealizedProfitLoss)}`}>
-                                     {analysisData.totalUnrealizedProfitLoss > 0 ? '+' : ''}{formatMoney(analysisData.totalUnrealizedProfitLoss)}
-                                 </span>
+                         <div className="flex items-center gap-2 flex-1 justify-between pr-2">
+                             <div className="flex items-center gap-2">
+                                 <div className="p-1 bg-indigo-100 rounded"><Wallet className="w-4 h-4 text-indigo-600" /></div>
+                                 <h4 className="font-bold text-[18px] text-slate-800">A. 資產價值損益</h4>
                              </div>
+                             <span className={`text-[16px] font-bold ${getColor(analysisData.totalUnrealizedProfitLoss)}`}>
+                                 {analysisData.totalUnrealizedProfitLoss > 0 ? '+' : ''}{formatMoney(analysisData.totalUnrealizedProfitLoss)}
+                             </span>
                          </div>
                          {expandedAnalysis.includes('A') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
                      </div>
@@ -572,7 +612,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                         <div className="text-[16px] text-slate-600 font-light">{row.name}</div>
                                         <div className="flex items-center gap-1">
                                             <span className="text-[12px] font-light text-slate-400">購買總價</span>
-                                            <span className="text-[16px] text-slate-600 font-light">${formatMoney(row.totalCost)}</span>
+                                            <span className="text-[14px] text-slate-600 font-light">${formatMoney(row.totalCost)}</span>
                                         </div>
                                     </div>
                                     {/* Row 2: 現值總價, 報酬(報酬率) */}
@@ -597,15 +637,15 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      )}
                 </div>
 
-                {/* A3-B. 股息收益累積 (標題含總計) */}
+                {/* A3-B. 股息收益累積 (標題單行 左右對齊) */}
                 <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                      <div onClick={() => toggleAnalysis('B')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
-                         <div className="flex items-center gap-2">
-                             <div className="p-1 bg-amber-100 rounded"><Coins className="w-4 h-4 text-amber-600" /></div>
-                             <div className="flex items-baseline gap-2">
-                                 <h4 className="font-bold text-base text-slate-800">B. 股息收益累積</h4>
-                                 <span className="text-sm font-bold text-amber-600">${formatMoney(analysisData.totalAccumulatedDividend)}</span>
+                         <div className="flex items-center gap-2 flex-1 justify-between pr-2">
+                             <div className="flex items-center gap-2">
+                                 <div className="p-1 bg-amber-100 rounded"><Coins className="w-4 h-4 text-amber-600" /></div>
+                                 <h4 className="font-bold text-[18px] text-slate-800">B. 股息收益累積</h4>
                              </div>
+                             <span className="text-[16px] font-bold text-amber-600">${formatMoney(analysisData.totalAccumulatedDividend)}</span>
                          </div>
                          {expandedAnalysis.includes('B') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
                      </div>
@@ -639,7 +679,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                                 <div className="text-[16px] text-slate-500 font-light">{row.name}</div>
                                                 <div className="flex items-center gap-1">
                                                     <span className="text-[12px] font-light text-slate-400">購買總價</span>
-                                                    <span className="text-[16px] text-slate-600 font-light">${formatMoney(row.totalCost)}</span>
+                                                    <span className="text-[14px] text-slate-600 font-light">${formatMoney(row.totalCost)}</span>
                                                 </div>
                                             </div>
                                             <div className="flex justify-between items-center">
@@ -660,15 +700,15 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      )}
                 </div>
 
-                {/* A3-C. 預估股息試算 (標題含總計) */}
+                {/* A3-C. 預估股息試算 (標題單行 左右對齊) */}
                 <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                      <div onClick={() => toggleAnalysis('C')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
-                         <div className="flex items-center gap-2">
-                             <div className="p-1 bg-blue-100 rounded"><Calculator className="w-4 h-4 text-blue-600" /></div>
-                             <div className="flex items-baseline gap-2">
-                                 <h4 className="font-bold text-base text-slate-800">C. 預估股息試算</h4>
-                                 <span className="text-sm font-bold text-blue-600">${formatMoney(analysisData.totalEstAnnualIncome)}</span>
+                         <div className="flex items-center gap-2 flex-1 justify-between pr-2">
+                             <div className="flex items-center gap-2">
+                                 <div className="p-1 bg-blue-100 rounded"><Calculator className="w-4 h-4 text-blue-600" /></div>
+                                 <h4 className="font-bold text-[18px] text-slate-800">C. 預估股息試算</h4>
                              </div>
+                             <span className="text-[16px] font-bold text-blue-600">${formatMoney(analysisData.totalEstAnnualIncome)}</span>
                          </div>
                          {expandedAnalysis.includes('C') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
                      </div>
@@ -681,7 +721,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                         <div className="text-[16px] text-slate-500 font-light">{row.name}</div>
                                         <div className="flex items-center gap-1">
                                             <span className="text-[12px] font-light text-slate-400">購買總價</span>
-                                            <span className="text-[16px] text-slate-600 font-light">${formatMoney(row.totalCost)}</span>
+                                            <span className="text-[14px] text-slate-600 font-light">${formatMoney(row.totalCost)}</span>
                                         </div>
                                     </div>
                                     {/* Row 2: 殖利率, 預估年息 */}
@@ -719,17 +759,17 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      )}
                 </div>
 
-                {/* A3-D. 預估資產增值 (標題含總計) */}
+                {/* A3-D. 預估資產增值 (標題單行 左右對齊) */}
                 <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                      <div onClick={() => toggleAnalysis('D')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
-                         <div className="flex items-center gap-2">
-                             <div className="p-1 bg-emerald-100 rounded"><LineChart className="w-4 h-4 text-emerald-600" /></div>
-                             <div className="flex items-baseline gap-2">
-                                 <h4 className="font-bold text-base text-slate-800">D. 預估資產增值</h4>
-                                 <span className={`text-sm font-bold ${getColor(analysisData.totalEstGainLoss)}`}>
-                                     {analysisData.totalEstGainLoss > 0 ? '+' : ''}{formatMoney(analysisData.totalEstGainLoss)}
-                                 </span>
+                         <div className="flex items-center gap-2 flex-1 justify-between pr-2">
+                             <div className="flex items-center gap-2">
+                                 <div className="p-1 bg-emerald-100 rounded"><LineChart className="w-4 h-4 text-emerald-600" /></div>
+                                 <h4 className="font-bold text-[18px] text-slate-800">D. 預估資產增值</h4>
                              </div>
+                             <span className={`text-[16px] font-bold ${getColor(analysisData.totalEstGainLoss)}`}>
+                                 {analysisData.totalEstGainLoss > 0 ? '+' : ''}{formatMoney(analysisData.totalEstGainLoss)}
+                             </span>
                          </div>
                          {expandedAnalysis.includes('D') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
                      </div>
@@ -741,7 +781,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                         <div className="text-[16px] text-slate-500 font-normal">{row.name}</div>
                                         <div className="flex items-center gap-1">
                                             <span className="text-[12px] font-light text-slate-400">購買總價</span>
-                                            <span className="text-[16px] text-slate-600 font-light">${formatMoney(row.totalCost)}</span>
+                                            <span className="text-[14px] text-slate-600 font-normal">${formatMoney(row.totalCost)}</span>
                                         </div>
                                     </div>
                                     <div className="flex justify-between items-center">
