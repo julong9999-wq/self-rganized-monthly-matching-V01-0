@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { Play, Database } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Play, Database, Eye } from 'lucide-react';
 
 interface Props {
   defaultUrl1: string;
@@ -12,6 +12,30 @@ interface Props {
 const SheetConfigView: React.FC<Props> = ({ defaultUrl1, defaultUrl2, onStart, isLoading }) => {
   const [url1, setUrl1] = useState(defaultUrl1);
   const [url2, setUrl2] = useState(defaultUrl2);
+  const [visitCount, setVisitCount] = useState<number | null>(null);
+
+  // 取得瀏覽人數
+  useEffect(() => {
+    const fetchCount = async () => {
+        try {
+            // 使用 counterapi.dev (免費公開計數服務)
+            // Namespace: 2026-etf-assistant-app, Key: visits
+            const res = await fetch('https://api.counterapi.dev/v1/2026-etf-assistant-app/visits/up');
+            if (res.ok) {
+                const data = await res.json();
+                setVisitCount(data.count);
+            } else {
+                throw new Error("API Error");
+            }
+        } catch (e) {
+            // 若 API 失敗，退回使用 LocalStorage 模擬 (避免畫面空白)
+            const local = parseInt(localStorage.getItem('local_visits') || '0', 10) + 1;
+            localStorage.setItem('local_visits', local.toString());
+            setVisitCount(local);
+        }
+    };
+    fetchCount();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,6 +102,18 @@ const SheetConfigView: React.FC<Props> = ({ defaultUrl1, defaultUrl2, onStart, i
                     系統將自動解析 CSV 格式
                 </p>
             </div>
+
+            {/* 網站瀏覽人數紀錄 */}
+            <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col items-center justify-center text-slate-400 gap-1">
+                 <div className="flex items-center gap-2 text-sm font-medium">
+                     <Eye className="w-4 h-4" />
+                     <span>網站瀏覽人數</span>
+                 </div>
+                 <div className="font-mono text-xl font-bold text-slate-600 tracking-wider">
+                     {visitCount !== null ? visitCount.toLocaleString() : '---'}
+                 </div>
+            </div>
+
           </form>
         </div>
       </div>
