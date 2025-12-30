@@ -554,10 +554,10 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      <div onClick={() => toggleAnalysis('A')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
                          <div className="flex items-center gap-2">
                              <div className="p-1 bg-indigo-100 rounded"><Wallet className="w-4 h-4 text-indigo-600" /></div>
-                             <div className="flex flex-col">
+                             <div className="flex items-baseline gap-2">
                                  <h4 className="font-bold text-base text-slate-800">A. 資產價值損益</h4>
                                  <span className={`text-sm font-bold ${getColor(analysisData.totalUnrealizedProfitLoss)}`}>
-                                     總損益: {analysisData.totalUnrealizedProfitLoss > 0 ? '+' : ''}{formatMoney(analysisData.totalUnrealizedProfitLoss)}
+                                     {analysisData.totalUnrealizedProfitLoss > 0 ? '+' : ''}{formatMoney(analysisData.totalUnrealizedProfitLoss)}
                                  </span>
                              </div>
                          </div>
@@ -581,10 +581,13 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                             <span className="text-[12px] font-light text-slate-400">現值總價</span>
                                             <span className="text-[16px] text-slate-800 font-bold">${formatMoney(row.marketValue)}</span>
                                         </div>
-                                        <div className="flex items-center gap-1">
+                                        <div className="flex items-center gap-1 items-baseline">
                                             <span className="text-[12px] font-light text-slate-400">報酬</span>
                                             <span className={`text-[16px] font-bold ${getColor(row.profitLoss)}`}>
-                                                {row.profitLoss > 0 ? '+' : ''}{formatMoney(row.profitLoss)} ({formatPercent(row.profitLossRate)}%)
+                                                {row.profitLoss > 0 ? '+' : ''}{formatMoney(row.profitLoss)}
+                                            </span>
+                                            <span className={`text-[12px] font-light ${getColor(row.profitLoss)}`}>
+                                                ({formatPercent(row.profitLossRate)}%)
                                             </span>
                                         </div>
                                     </div>
@@ -599,9 +602,9 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      <div onClick={() => toggleAnalysis('B')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
                          <div className="flex items-center gap-2">
                              <div className="p-1 bg-amber-100 rounded"><Coins className="w-4 h-4 text-amber-600" /></div>
-                             <div className="flex flex-col">
+                             <div className="flex items-baseline gap-2">
                                  <h4 className="font-bold text-base text-slate-800">B. 股息收益累積</h4>
-                                 <span className="text-sm font-bold text-amber-600">總股息: ${formatMoney(analysisData.totalAccumulatedDividend)}</span>
+                                 <span className="text-sm font-bold text-amber-600">${formatMoney(analysisData.totalAccumulatedDividend)}</span>
                              </div>
                          </div>
                          {expandedAnalysis.includes('B') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
@@ -662,9 +665,9 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      <div onClick={() => toggleAnalysis('C')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
                          <div className="flex items-center gap-2">
                              <div className="p-1 bg-blue-100 rounded"><Calculator className="w-4 h-4 text-blue-600" /></div>
-                             <div className="flex flex-col">
+                             <div className="flex items-baseline gap-2">
                                  <h4 className="font-bold text-base text-slate-800">C. 預估股息試算</h4>
-                                 <span className="text-sm font-bold text-blue-600">總預估年息: ${formatMoney(analysisData.totalEstAnnualIncome)}</span>
+                                 <span className="text-sm font-bold text-blue-600">${formatMoney(analysisData.totalEstAnnualIncome)}</span>
                              </div>
                          </div>
                          {expandedAnalysis.includes('C') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
@@ -721,10 +724,10 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      <div onClick={() => toggleAnalysis('D')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
                          <div className="flex items-center gap-2">
                              <div className="p-1 bg-emerald-100 rounded"><LineChart className="w-4 h-4 text-emerald-600" /></div>
-                             <div className="flex flex-col">
+                             <div className="flex items-baseline gap-2">
                                  <h4 className="font-bold text-base text-slate-800">D. 預估資產增值</h4>
                                  <span className={`text-sm font-bold ${getColor(analysisData.totalEstGainLoss)}`}>
-                                     總預估增值: {analysisData.totalEstGainLoss > 0 ? '+' : ''}{formatMoney(analysisData.totalEstGainLoss)}
+                                     {analysisData.totalEstGainLoss > 0 ? '+' : ''}{formatMoney(analysisData.totalEstGainLoss)}
                                  </span>
                              </div>
                          </div>
@@ -738,7 +741,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                         <div className="text-[16px] text-slate-500 font-normal">{row.name}</div>
                                         <div className="flex items-center gap-1">
                                             <span className="text-[12px] font-light text-slate-400">購買總價</span>
-                                            <span className="text-[16px] text-slate-600 font-normal">${formatMoney(row.totalCost)}</span>
+                                            <span className="text-[16px] text-slate-600 font-light">${formatMoney(row.totalCost)}</span>
                                         </div>
                                     </div>
                                     <div className="flex justify-between items-center">
