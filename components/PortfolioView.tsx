@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { PortfolioItem, Transaction, EtfData } from '../types';
-import { Trash2, ChevronDown, ChevronUp, Edit3, Save, Plus, BarChart3, TrendingUp, Wallet, X, Calculator, LineChart, Minus, Check } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, Edit3, Save, Plus, BarChart3, TrendingUp, Wallet, X, Calculator, LineChart, Minus, Check, Coins } from 'lucide-react';
 
 interface Props {
   portfolio: PortfolioItem[];
@@ -10,7 +10,8 @@ interface Props {
   onAddTransaction: (etfCode: string, tx: Transaction) => void;
 }
 
-// 輔助：判斷債券細分類
+// --- Helpers ---
+
 const getBondType = (code: string): string => {
     const monthlyBonds = ['00937B', '00772B', '00933B', '00773B'];
     if (monthlyBonds.some(b => code.includes(b))) return 'AD';
@@ -21,7 +22,6 @@ const getBondType = (code: string): string => {
     return 'AC'; 
 };
 
-// 輔助：取得配息月份
 const getDividendMonths = (category: string, code: string): number[] => {
     let type = category;
     if (category === 'AE') type = getBondType(code);
@@ -38,13 +38,11 @@ const getDividendMonths = (category: string, code: string): number[] => {
     }
 };
 
-// 輔助：取得卡片顏色樣式
 const getCardStyle = (etf: EtfData) => {
     let type = etf.category;
     if (etf.category === 'AE') {
         type = getBondType(etf.code) as any;
     }
-
     switch (type) {
         case 'AA': return 'bg-blue-50 border-blue-200';
         case 'AB': return 'bg-emerald-50 border-emerald-200';
@@ -52,6 +50,19 @@ const getCardStyle = (etf: EtfData) => {
         case 'AD': return 'bg-amber-50 border-amber-200';
         default: return 'bg-white border-slate-200';
     }
+};
+
+const parseDateSimple = (dateStr: string): number => {
+    if (!dateStr) return 0;
+    const cleanStr = dateStr.trim();
+    if (/^\d{8}$/.test(cleanStr)) {
+         const y = parseInt(cleanStr.substring(0, 4));
+         const m = parseInt(cleanStr.substring(4, 6)) - 1;
+         const d = parseInt(cleanStr.substring(6, 8));
+         return new Date(y, m, d).getTime();
+    }
+    const standardDate = new Date(cleanStr.replace(/\./g, '/').replace(/-/g, '/'));
+    return isNaN(standardDate.getTime()) ? 0 : standardDate.getTime();
 };
 
 const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDeleteTransaction, onAddTransaction }) => {
@@ -63,7 +74,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
   const [editForm, setEditForm] = useState<Transaction | null>(null);
   const [addForm, setAddForm] = useState<Transaction | null>(null);
   
-  // 分析表格展開狀態 (預設關閉)
+  // Analysis Expanded State (Default all collapsed)
   const [expandedAnalysis, setExpandedAnalysis] = useState<string[]>([]);
 
   const toggleAnalysis = (key: string) => {
@@ -77,15 +88,16 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
     setEditingTxId(null); setEditForm(null); setAddingToId(null); setAddForm(null);
   };
 
-  // --- 新增/編輯 邏輯 ---
-  // 規則: 預設帶入最近日期, 張數 XX, 單價: 前一日收盤價 (這裡用 etf.priceCurrent 替代), 成交總價: 用 50 萬計算可買整樹張數
+  // --- Add/Edit Logic ---
   const startAdd = (item: PortfolioItem) => {
       const today = new Date().toISOString().split('T')[0].replace(/-/g, '/');
-      const price = item.etf.priceCurrent || 10; // 防呆
+      const price = item.etf.priceCurrent || 10;
       
-      // 計算 50 萬預算可買的整張數
+      // 50萬預算計算整張股數
       const budget = 500000;
-      const shares = Math.floor(budget / price / 1000) * 1000;
+      const rawShares = Math.floor(budget / price);
+      // 取整張 (1000股)
+      const shares = Math.floor(rawShares / 1000) * 1000;
       const finalShares = shares > 0 ? shares : 1000;
       const totalAmount = Math.round(finalShares * price);
 
@@ -116,44 +128,31 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
 
       const updated = { ...currentForm, [field]: newVal };
 
-      // 自動連動計算：
-      // 如果改了張數或單價 -> 算總價
+      // 連動計算
       if (field === 'shares' || field === 'price') {
           updated.totalAmount = Math.round(Number(updated.shares) * Number(updated.price));
       }
-      // 如果改了總價 -> 不反推單價/張數 (讓使用者自由輸入，避免除不盡小數點問題)
 
       setter(updated);
   };
 
   const saveAdd = (etfCode: string) => { 
       if (addForm) { 
-          // 檢查 0
-          if (addForm.shares === 0 || addForm.price === 0) {
-              alert("數值不能為 0");
-              return;
-          }
+          if (addForm.shares === 0 || addForm.price === 0) { alert("數值不能為 0"); return; }
           onAddTransaction(etfCode, addForm); 
-          setAddingToId(null); 
-          setAddForm(null); 
+          setAddingToId(null); setAddForm(null); 
       } 
   };
   
   const startEdit = (tx: Transaction) => { 
-      setEditingTxId(tx.id); 
-      setEditForm({ ...tx }); 
-      setAddingToId(null); 
+      setEditingTxId(tx.id); setEditForm({ ...tx }); setAddingToId(null); 
   };
   
   const saveEdit = (etfCode: string) => { 
       if (editForm) { 
-          if (editForm.shares === 0 || editForm.price === 0) {
-              alert("數值不能為 0");
-              return;
-          }
+          if (editForm.shares === 0 || editForm.price === 0) { alert("數值不能為 0"); return; }
           onUpdateTransaction(etfCode, editForm); 
-          setEditingTxId(null); 
-          setEditForm(null); 
+          setEditingTxId(null); setEditForm(null); 
       } 
   };
 
@@ -161,26 +160,25 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
       if (window.confirm("確定刪除此筆交易?")) onDeleteTransaction(etfCode, txId); 
   };
 
-  // --- 計算核心 ---
+  // --- Calculations ---
   const grandTotalCost = portfolio.reduce((sum, item) => sum + item.transactions.reduce((t, tx) => t + tx.totalAmount, 0), 0);
   const holdingsCount = portfolio.length;
-  // 計算總張數 (投資張數)
-  const totalPortfolioShares = portfolio.reduce((sum, item) => sum + item.transactions.reduce((t, tx) => t + tx.shares, 0), 0) / 1000; // 單位：張
+  // 張數計算 (股數 / 1000)
+  const totalPortfolioShares = portfolio.reduce((sum, item) => sum + item.transactions.reduce((t, tx) => t + tx.shares, 0), 0) / 1000;
 
   const analysisData = useMemo(() => {
-    const monthlyDividends = Array(12).fill(0);
-    const valueProfitLossList: any[] = [];
-    const dividendIncomeList: any[] = [];
-    const assetGrowthList: any[] = [];
-
+    // Arrays for each section
+    const valueProfitLossList: any[] = [];   // A
+    const accumulatedDividendList: any[] = []; // B
+    const estimatedDividendList: any[] = []; // C
+    const assetGrowthList: any[] = [];       // D
+    
+    // Charts Data
+    const monthlyEstDividends = Array(12).fill(0);
+    
+    let totalMarketValue = 0;
     let weightedReturnRateSum = 0;
     let totalPortfolioCost = 0;
-    
-    // 目前總市值
-    const currentMarketValue = portfolio.reduce((sum, item) => {
-        const totalShares = item.transactions.reduce((s, tx) => s + tx.shares, 0);
-        return sum + (totalShares * item.etf.priceCurrent);
-    }, 0);
 
     portfolio.forEach(item => {
         const itemTotalCost = item.transactions.reduce((sum, tx) => sum + tx.totalAmount, 0);
@@ -188,8 +186,9 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
         
         totalPortfolioCost += itemTotalCost;
         weightedReturnRateSum += itemTotalCost * (item.etf.returnRate || 0);
+        totalMarketValue += (totalShares * item.etf.priceCurrent);
 
-        // A. 資產價值損益
+        // --- A. 資產價值損益 ---
         const itemMarketValue = totalShares * item.etf.priceCurrent;
         const itemProfitLoss = itemMarketValue - itemTotalCost;
         const itemProfitLossRate = itemTotalCost > 0 ? (itemProfitLoss / itemTotalCost) * 100 : 0;
@@ -203,34 +202,61 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
             profitLossRate: itemProfitLossRate
         });
 
-        // 配息月份
-        let months = getDividendMonths(item.etf.category, item.etf.code);
-        if (!months || months.length === 0) months = [2, 5, 8, 11];
-        const frequency = Math.max(months.length, 1);
-
-        // B. 股息收益累積 (這裡沿用預估邏輯，顯示為股息收入)
-        let annualDividend = 0;
-        if (item.etf.dividendYield > 0) {
-            annualDividend = itemTotalCost * (item.etf.dividendYield / 100);
-        }
+        // --- B. 股息收益累積 (Historical) ---
+        // Logic: Iterate transactions, find dividends after transaction date
+        let itemAccumulatedDividend = 0;
+        const dividends = item.etf.dividends || [];
         
-        // 分配到各月份
-        if (annualDividend > 0) {
-            const amountPerDistribution = annualDividend / frequency;
-            months.forEach(idx => {
-                monthlyDividends[idx] += amountPerDistribution;
+        item.transactions.forEach(tx => {
+            const txDateVal = parseDateSimple(tx.date);
+            // Find all dividends where ex-date > tx-date (Rough approximation)
+            // Using >= for simplicity
+            dividends.forEach(d => {
+                const dDateVal = parseDateSimple(d.date);
+                if (dDateVal >= txDateVal) {
+                    itemAccumulatedDividend += (d.amount * tx.shares);
+                }
             });
-        }
+        });
 
-        dividendIncomeList.push({
+        const actualYield = itemTotalCost > 0 ? ((itemAccumulatedDividend / itemTotalCost) * 100) : 0;
+
+        accumulatedDividendList.push({
             id: item.id,
             name: item.etf.name,
             totalCost: itemTotalCost,
-            yield: item.etf.dividendYield, // 股息利率
-            income: annualDividend // 股息收入
+            yield: actualYield,
+            income: itemAccumulatedDividend
         });
 
-        // C. 預估資產增值
+        // --- C. 預估股息試算 (Projected) ---
+        // Logic: Use current yield % * Total Cost to estimate annual income
+        let annualEstIncome = 0;
+        if (item.etf.dividendYield > 0) {
+            annualEstIncome = itemTotalCost * (item.etf.dividendYield / 100);
+        }
+        
+        // Distribution
+        let months = getDividendMonths(item.etf.category, item.etf.code);
+        if (!months || months.length === 0) months = [2, 5, 8, 11];
+        const frequency = Math.max(months.length, 1);
+        
+        if (annualEstIncome > 0) {
+            const amountPerMonth = annualEstIncome / frequency;
+            months.forEach(m => {
+                monthlyEstDividends[m] += amountPerMonth;
+            });
+        }
+
+        estimatedDividendList.push({
+            id: item.id,
+            name: item.etf.name,
+            totalCost: itemTotalCost,
+            yield: item.etf.dividendYield, // Use current market yield for projection
+            estAnnualIncome: annualEstIncome
+        });
+
+        // --- D. 預估資產增值 (Projected) ---
         const estimatedGainLoss = itemTotalCost * (item.etf.returnRate / 100);
         assetGrowthList.push({
             id: item.id,
@@ -241,37 +267,44 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
         });
     });
 
+    // Chart D Data Generation
     const portfolioAvgReturnRate = totalPortfolioCost > 0 ? (weightedReturnRateSum / totalPortfolioCost) : 0;
     
-    // Growth Chart Data
-    const currentMarketValueLine = Array(12).fill(0).map((_, idx) => {
+    // 1. Without Dividend (Market Value Growth)
+    const growthCurveNoDiv = Array(12).fill(0).map((_, idx) => {
         const month = idx + 1;
+        // Simple linear growth projection over 12 months based on current return rate
+        // Formula: CurrentValue * (1 + (Rate * Month/12))
         const growthFactor = (portfolioAvgReturnRate / 100) * (month / 12);
-        return currentMarketValue * (1 + growthFactor);
+        return totalMarketValue * (1 + growthFactor);
     });
 
+    // 2. With Dividend (Total Asset Growth)
     let accumulatedDivs = 0;
-    const totalAssetLine = currentMarketValueLine.map((val, idx) => {
-        accumulatedDivs += monthlyDividends[idx];
+    const growthCurveWithDiv = growthCurveNoDiv.map((val, idx) => {
+        accumulatedDivs += monthlyEstDividends[idx];
         return val + accumulatedDivs;
     });
 
-    const allValues = [grandTotalCost, currentMarketValue, ...totalAssetLine].filter(v => v > 0);
-    const maxY = Math.max(...allValues) * 1.05;
-    const minY = Math.min(...allValues) * 0.95;
-    const maxMonthDiv = Math.max(...monthlyDividends);
+    // Chart Scaling
+    const allChartValues = [...growthCurveWithDiv, ...growthCurveNoDiv, totalMarketValue];
+    const maxY = Math.max(...allChartValues) * 1.02;
+    const minY = Math.min(...allChartValues) * 0.98;
+    const maxDivBar = Math.max(...monthlyEstDividends);
 
-    return { 
+    return {
         valueProfitLossList,
-        dividendIncomeList,
+        accumulatedDividendList,
+        estimatedDividendList,
         assetGrowthList,
-        monthlyDividends,
-        currentMarketValueLine,
-        totalAssetLine,
-        maxMonthDiv,
+        monthlyEstDividends,
+        growthCurveNoDiv,
+        growthCurveWithDiv,
+        maxDivBar,
         maxY,
         minY,
-        totalUnrealizedProfitLoss: currentMarketValue - grandTotalCost
+        totalMarketValue,
+        totalUnrealizedProfitLoss: totalMarketValue - grandTotalCost
     };
   }, [portfolio, grandTotalCost]);
 
@@ -300,7 +333,10 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
               </div>
               <div className="flex flex-col items-center">
                   <span className="text-[14px] font-light text-slate-500">投資張數</span>
-                  <span className="text-[18px] font-bold text-slate-800">{Math.round(totalPortfolioShares).toLocaleString()}</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-[18px] font-bold text-slate-800">{Math.round(totalPortfolioShares).toLocaleString()}</span>
+                    <span className="text-[12px] text-slate-400">張</span>
+                  </div>
               </div>
           </div>
       </div>
@@ -336,11 +372,11 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                     </button>
                                 </div>
                                 
-                                {/* Row 2: 累計張數 / 平均成本 / 投資金額總計 */}
+                                {/* Row 2: 累計股數 / 平均成本 / 投資金額總計 */}
                                 <div className="grid grid-cols-3 gap-2 border-t border-black/5 pt-2">
                                     <div className="flex flex-col">
-                                        <span className="text-[12px] font-light text-slate-500">累計張數</span>
-                                        <span className="text-[18px] font-bold text-slate-800">{(totalShares/1000).toLocaleString()}</span>
+                                        <span className="text-[12px] font-light text-slate-500">累計股數</span>
+                                        <span className="text-[18px] font-bold text-slate-800">{(totalShares).toLocaleString()}</span>
                                     </div>
                                     <div className="flex flex-col text-center">
                                         <span className="text-[12px] font-light text-slate-500">平均成本</span>
@@ -357,32 +393,28 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                             {isExpanded && (
                                 <div className="bg-white border-t border-slate-200 px-3 py-3 space-y-3">
                                     
-                                    {/* 新增模式 */}
+                                    {/* 新增模式 (淡灰色背景) */}
                                     {addingToId === item.id && addForm && (
-                                        <div className="bg-slate-50 p-3 rounded-lg border border-blue-200 mb-2 shadow-inner">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <span className="text-xs font-bold text-blue-600">新增交易</span>
-                                                <button onClick={() => setAddingToId(null)}><X className="w-4 h-4 text-slate-400"/></button>
-                                            </div>
+                                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-2 shadow-inner">
                                             {/* Row 1: 日期, 成交總價 */}
                                             <div className="grid grid-cols-2 gap-3 mb-2">
                                                 <div>
-                                                    <label className="text-[12px] text-slate-500 block mb-0.5">日期</label>
+                                                    <label className="text-[12px] text-slate-500 block mb-0.5 font-light">日期</label>
                                                     <input value={addForm.date} onChange={(e) => handleFormChange('add', 'date', e.target.value)} className="w-full text-[16px] p-1 border rounded" />
                                                 </div>
                                                 <div>
-                                                    <label className="text-[12px] text-slate-500 block mb-0.5 text-right">成交總價</label>
+                                                    <label className="text-[12px] text-slate-500 block mb-0.5 text-right font-light">成交總價</label>
                                                     <input type="number" value={addForm.totalAmount} onChange={(e) => handleFormChange('add', 'totalAmount', e.target.value)} className="w-full text-[16px] p-1 border rounded text-right" />
                                                 </div>
                                             </div>
-                                            {/* Row 2: 張數, 單價 */}
+                                            {/* Row 2: 股數, 單價 */}
                                             <div className="grid grid-cols-2 gap-3 mb-3">
                                                 <div>
-                                                    <label className="text-[12px] text-slate-500 block mb-0.5">張數</label>
+                                                    <label className="text-[12px] text-slate-500 block mb-0.5 font-light">股數</label>
                                                     <input type="number" value={addForm.shares} onChange={(e) => handleFormChange('add', 'shares', e.target.value)} className="w-full text-[16px] p-1 border rounded" />
                                                 </div>
                                                 <div>
-                                                    <label className="text-[12px] text-slate-500 block mb-0.5 text-right">單價</label>
+                                                    <label className="text-[12px] text-slate-500 block mb-0.5 text-right font-light">單價</label>
                                                     <input type="number" value={addForm.price} onChange={(e) => handleFormChange('add', 'price', e.target.value)} className="w-full text-[16px] p-1 border rounded text-right" />
                                                 </div>
                                             </div>
@@ -398,18 +430,18 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                         const isEditing = editingTxId === tx.id && editForm;
                                         
                                         if (isEditing) {
+                                            // 編輯模式 (淡紅色背景)
                                             return (
-                                                <div key={tx.id} className="bg-slate-50 p-3 rounded-lg border border-blue-200 shadow-inner">
-                                                     <div className="flex justify-between items-center mb-2">
-                                                        <span className="text-xs font-bold text-blue-600">修改交易</span>
-                                                    </div>
+                                                <div key={tx.id} className="bg-red-50 p-3 rounded-lg border border-red-200 shadow-inner">
+                                                    {/* Row 1: 日期, 成交總價 */}
                                                     <div className="grid grid-cols-2 gap-3 mb-2">
-                                                        <div><label className="text-[12px] text-slate-500 block">日期</label><input value={editForm!.date} onChange={(e) => handleFormChange('edit', 'date', e.target.value)} className="w-full text-[16px] border rounded px-1" /></div>
-                                                        <div><label className="text-[12px] text-slate-500 block text-right">成交總價</label><input type="number" value={editForm!.totalAmount} onChange={(e) => handleFormChange('edit', 'totalAmount', e.target.value)} className="w-full text-[16px] border rounded px-1 text-right" /></div>
+                                                        <div><label className="text-[12px] text-slate-500 block font-light">日期</label><input value={editForm!.date} onChange={(e) => handleFormChange('edit', 'date', e.target.value)} className="w-full text-[16px] border rounded px-1" /></div>
+                                                        <div><label className="text-[12px] text-slate-500 block text-right font-light">成交總價</label><input type="number" value={editForm!.totalAmount} onChange={(e) => handleFormChange('edit', 'totalAmount', e.target.value)} className="w-full text-[16px] border rounded px-1 text-right" /></div>
                                                     </div>
+                                                    {/* Row 2: 股數, 單價 */}
                                                     <div className="grid grid-cols-2 gap-3 mb-3">
-                                                        <div><label className="text-[12px] text-slate-500 block">張數</label><input type="number" value={editForm!.shares} onChange={(e) => handleFormChange('edit', 'shares', e.target.value)} className="w-full text-[16px] border rounded px-1" /></div>
-                                                        <div><label className="text-[12px] text-slate-500 block text-right">單價</label><input type="number" value={editForm!.price} onChange={(e) => handleFormChange('edit', 'price', e.target.value)} className="w-full text-[16px] border rounded px-1 text-right" /></div>
+                                                        <div><label className="text-[12px] text-slate-500 block font-light">股數</label><input type="number" value={editForm!.shares} onChange={(e) => handleFormChange('edit', 'shares', e.target.value)} className="w-full text-[16px] border rounded px-1" /></div>
+                                                        <div><label className="text-[12px] text-slate-500 block text-right font-light">單價</label><input type="number" value={editForm!.price} onChange={(e) => handleFormChange('edit', 'price', e.target.value)} className="w-full text-[16px] border rounded px-1 text-right" /></div>
                                                     </div>
                                                     <div className="flex gap-2">
                                                         <button onClick={() => setEditingTxId(null)} className="flex-1 py-1.5 bg-white border border-slate-300 rounded text-slate-600 text-sm">取消</button>
@@ -424,14 +456,14 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                                 {/* Row 1: 日期 / 成交總價 / 刪除 */}
                                                 <div className="flex justify-between items-center mb-1">
                                                     <span className="text-[12px] font-light text-slate-500 w-20">日期</span>
-                                                    <span className="text-[14px] text-slate-700 flex-1 text-right pr-3 font-mono">{tx.date}</span>
+                                                    <span className="text-[14px] font-light text-slate-700 flex-1 text-right pr-3 font-mono">{tx.date}</span>
                                                     <span className="text-[14px] font-light text-slate-700 w-24 text-right">${Math.round(tx.totalAmount).toLocaleString()}</span>
                                                     <button onClick={() => handleDeleteClick(item.id, tx.id)} className="ml-2 p-1 text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
                                                 </div>
-                                                {/* Row 2: 張數 / 單價 / 修改 */}
+                                                {/* Row 2: 股數 / 單價 / 修改 */}
                                                 <div className="flex justify-between items-center">
-                                                    <span className="text-[12px] font-light text-slate-500 w-20">張數</span>
-                                                    <span className="text-[14px] text-slate-700 flex-1 text-right pr-3">{tx.shares.toLocaleString()}</span>
+                                                    <span className="text-[12px] font-light text-slate-500 w-20">股數</span>
+                                                    <span className="text-[14px] font-light text-slate-700 flex-1 text-right pr-3">{tx.shares.toLocaleString()}</span>
                                                     <span className="text-[14px] font-light text-slate-700 w-24 text-right">@{tx.price}</span>
                                                     <button onClick={() => startEdit(tx)} className="ml-2 px-2 py-0.5 bg-red-50 text-red-600 rounded text-[12px] border border-red-100">修改</button>
                                                 </div>
@@ -451,7 +483,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                 
                 {/* A3-A. 資產價值損益 */}
                 <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                     <div onClick={() => toggleAnalysis('PL')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
+                     <div onClick={() => toggleAnalysis('A')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
                          <div className="flex items-center gap-2">
                              <div className="p-1 bg-indigo-100 rounded"><Wallet className="w-4 h-4 text-indigo-600" /></div>
                              <h4 className="font-bold text-lg text-slate-800">A. 資產價值損益</h4>
@@ -460,21 +492,19 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                              <span className={`font-bold text-base ${getColor(analysisData.totalUnrealizedProfitLoss)}`}>
                                  {analysisData.totalUnrealizedProfitLoss > 0 ? '+' : ''}{Math.round(analysisData.totalUnrealizedProfitLoss).toLocaleString()}
                              </span>
-                             {expandedAnalysis.includes('PL') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
+                             {expandedAnalysis.includes('A') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
                          </div>
                      </div>
-                     {expandedAnalysis.includes('PL') && (
+                     {expandedAnalysis.includes('A') && (
                         <div className="px-3 pb-3 border-t border-slate-100 pt-2 space-y-2 animate-[fadeIn_0.2s_ease-out]">
                              {analysisData.valueProfitLossList.map((row) => (
                                 <div key={row.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col gap-1">
-                                    {/* Row 1: Name / P&L */}
                                     <div className="flex justify-between items-center">
                                         <div className="text-[14px] text-slate-500 font-normal">{row.name}</div>
                                         <div className={`text-[14px] font-normal ${getColor(row.profitLoss)}`}>
                                             {row.profitLoss > 0 ? '+' : ''}{Math.round(row.profitLoss).toLocaleString()} ({row.profitLossRate.toFixed(1)}%)
                                         </div>
                                     </div>
-                                    {/* Row 2: Cost / Market Value */}
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-1">
                                             <span className="text-[12px] font-light text-slate-400">購買總價</span>
@@ -491,20 +521,19 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      )}
                 </div>
 
-                {/* A3-B. 股息收益累積 */}
+                {/* A3-B. 股息收益累積 (New) */}
                 <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                     <div onClick={() => toggleAnalysis('DIV')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
+                     <div onClick={() => toggleAnalysis('B')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
                          <div className="flex items-center gap-2">
-                             <div className="p-1 bg-amber-100 rounded"><Calculator className="w-4 h-4 text-amber-600" /></div>
+                             <div className="p-1 bg-amber-100 rounded"><Coins className="w-4 h-4 text-amber-600" /></div>
                              <h4 className="font-bold text-lg text-slate-800">B. 股息收益累積</h4>
                          </div>
-                         {expandedAnalysis.includes('DIV') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
+                         {expandedAnalysis.includes('B') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
                      </div>
-                     {expandedAnalysis.includes('DIV') && (
+                     {expandedAnalysis.includes('B') && (
                         <div className="px-3 pb-3 border-t border-slate-100 pt-2 space-y-2 animate-[fadeIn_0.2s_ease-out]">
-                            {analysisData.dividendIncomeList.map((row) => (
+                            {analysisData.accumulatedDividendList.map((row) => (
                                 <div key={row.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col gap-1">
-                                    {/* Row 1: Name / Cost */}
                                     <div className="flex justify-between items-center">
                                         <div className="text-[14px] text-slate-500 font-normal">{row.name}</div>
                                         <div className="flex items-center gap-1">
@@ -512,11 +541,10 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                             <span className="text-[14px] text-slate-500 font-light">${Math.round(row.totalCost).toLocaleString()}</span>
                                         </div>
                                     </div>
-                                    {/* Row 2: Yield / Income */}
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-1">
                                             <span className="text-[12px] font-light text-slate-400">股息利率</span>
-                                            <span className="text-[14px] text-slate-500 font-light">{row.yield}%</span>
+                                            <span className="text-[14px] text-slate-500 font-light">{row.yield.toFixed(2)}%</span>
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <span className="text-[12px] font-light text-slate-400">股息收入</span>
@@ -525,13 +553,52 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                     </div>
                                 </div>
                             ))}
+                            <div className="bg-amber-50 p-2 rounded text-[10px] text-slate-500 mt-2">
+                                股息利率 = 股息收入 / 購買總價。以購買日期為起點，累計已發放之股息。
+                            </div>
+                        </div>
+                     )}
+                </div>
+
+                {/* A3-C. 預估股息試算 (Original B moved to C) */}
+                <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                     <div onClick={() => toggleAnalysis('C')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
+                         <div className="flex items-center gap-2">
+                             <div className="p-1 bg-blue-100 rounded"><Calculator className="w-4 h-4 text-blue-600" /></div>
+                             <h4 className="font-bold text-lg text-slate-800">C. 預估股息試算</h4>
+                         </div>
+                         {expandedAnalysis.includes('C') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
+                     </div>
+                     {expandedAnalysis.includes('C') && (
+                        <div className="px-3 pb-3 border-t border-slate-100 pt-2 space-y-2 animate-[fadeIn_0.2s_ease-out]">
+                            {analysisData.estimatedDividendList.map((row) => (
+                                <div key={row.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col gap-1">
+                                    <div className="flex justify-between items-center">
+                                        <div className="text-[14px] text-slate-500 font-normal">{row.name}</div>
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[12px] font-light text-slate-400">殖利率</span>
+                                            <span className="text-[14px] text-slate-500 font-light">{row.yield}%</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[12px] font-light text-slate-400">購買總價</span>
+                                            <span className="text-[14px] text-slate-500 font-light">${Math.round(row.totalCost).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <span className="text-[12px] font-light text-slate-400">預估年息</span>
+                                            <span className="text-[14px] text-slate-500 font-light">${Math.round(row.estAnnualIncome).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                             
-                            {/* Chart: Monthly Dividends */}
+                            {/* Chart: Monthly Dividends Bar */}
                             <div className="mt-4 pt-2 border-t border-slate-100">
                                 <div className="text-[12px] text-slate-400 font-light mb-2 text-center">每月預估股息分佈</div>
                                 <div className="flex items-end justify-between gap-1 h-32 pb-2">
-                                    {analysisData.monthlyDividends.map((val, idx) => {
-                                        const heightPct = analysisData.maxMonthDiv > 0 ? (val / analysisData.maxMonthDiv) * 100 : 0;
+                                    {analysisData.monthlyEstDividends.map((val, idx) => {
+                                        const heightPct = analysisData.maxDivBar > 0 ? (val / analysisData.maxDivBar) * 100 : 0;
                                         return (
                                             <div key={idx} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
                                                 <div className="w-full bg-blue-100 rounded-t-sm relative" style={{ height: `${Math.max(heightPct, 1)}%` }}>
@@ -547,20 +614,19 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                      )}
                 </div>
 
-                {/* A3-C. 預估資產增值 */}
+                {/* A3-D. 預估資產增值 */}
                 <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                     <div onClick={() => toggleAnalysis('GAIN')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
+                     <div onClick={() => toggleAnalysis('D')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
                          <div className="flex items-center gap-2">
                              <div className="p-1 bg-emerald-100 rounded"><LineChart className="w-4 h-4 text-emerald-600" /></div>
-                             <h4 className="font-bold text-lg text-slate-800">C. 預估資產增值</h4>
+                             <h4 className="font-bold text-lg text-slate-800">D. 預估資產增值</h4>
                          </div>
-                         {expandedAnalysis.includes('GAIN') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
+                         {expandedAnalysis.includes('D') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
                      </div>
-                     {expandedAnalysis.includes('GAIN') && (
+                     {expandedAnalysis.includes('D') && (
                         <div className="px-3 pb-3 border-t border-slate-100 pt-2 space-y-2 animate-[fadeIn_0.2s_ease-out]">
                             {analysisData.assetGrowthList.map((row) => (
                                 <div key={row.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col gap-1">
-                                    {/* Row 1: Name / Cost */}
                                     <div className="flex justify-between items-center">
                                         <div className="text-[14px] text-slate-500 font-normal">{row.name}</div>
                                         <div className="flex items-center gap-1">
@@ -568,7 +634,6 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                             <span className="text-[14px] text-slate-500 font-light">${Math.round(row.totalCost).toLocaleString()}</span>
                                         </div>
                                     </div>
-                                    {/* Row 2: Return Rate / Est Gain */}
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-1">
                                             <span className="text-[12px] font-light text-slate-400">報酬率(參考)</span>
@@ -599,8 +664,8 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                         <line x1="0" y1="50" x2="100" y2="50" stroke="#f1f5f9" strokeWidth="1" />
                                         <line x1="0" y1="100" x2="100" y2="100" stroke="#f1f5f9" strokeWidth="1" />
                                         
-                                        {analysisData.currentMarketValueLine.length > 0 && <polyline fill="none" stroke="#60a5fa" strokeWidth="1.5" points={analysisData.currentMarketValueLine.map((val, idx) => `${(idx/11)*100},${getY(val)}`).join(' ')} />}
-                                        {analysisData.totalAssetLine.length > 0 && <polyline fill="none" stroke="#10b981" strokeWidth="1.5" points={analysisData.totalAssetLine.map((val, idx) => `${(idx/11)*100},${getY(val)}`).join(' ')} />}
+                                        {analysisData.growthCurveNoDiv.length > 0 && <polyline fill="none" stroke="#60a5fa" strokeWidth="1.5" points={analysisData.growthCurveNoDiv.map((val, idx) => `${(idx/11)*100},${getY(val)}`).join(' ')} />}
+                                        {analysisData.growthCurveWithDiv.length > 0 && <polyline fill="none" stroke="#10b981" strokeWidth="1.5" points={analysisData.growthCurveWithDiv.map((val, idx) => `${(idx/11)*100},${getY(val)}`).join(' ')} />}
                                     </svg>
                                 </div>
                             </div>
