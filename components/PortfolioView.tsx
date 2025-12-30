@@ -12,7 +12,6 @@ interface Props {
 
 // --- Helpers ---
 
-// 格式化輔助
 const formatMoney = (val: number) => Math.round(val).toLocaleString('en-US');
 const formatShare = (val: number) => Math.round(val).toLocaleString('en-US');
 const formatPrice = (val: number) => val.toFixed(2);
@@ -107,11 +106,9 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
       const today = new Date().toISOString().split('T')[0].replace(/-/g, '/');
       const price = item.etf.priceCurrent || 10;
       
-      // 50萬預算計算整張股數
+      // 50萬預算計算整張股數 (1000股為一張)
       const budget = 500000;
-      const rawShares = Math.floor(budget / price);
-      // 取整張 (1000股)
-      const shares = Math.floor(rawShares / 1000) * 1000;
+      const shares = Math.floor(budget / price / 1000) * 1000; 
       const finalShares = shares > 0 ? shares : 1000;
       const totalAmount = Math.round(finalShares * price);
 
@@ -179,15 +176,21 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
   // --- Calculations ---
   const grandTotalCost = portfolio.reduce((sum, item) => sum + item.transactions.reduce((t, tx) => t + tx.totalAmount, 0), 0);
   const holdingsCount = portfolio.length;
-  // 張數計算 (總股數 / 1000)
-  const totalPortfolioShares = portfolio.reduce((sum, item) => sum + item.transactions.reduce((t, tx) => t + tx.shares, 0), 0) / 1000;
+  // 張數計算 (總股數) -> 顯示為 "投資張數" (單位：股) ? 
+  // 需求 A1: "投資張數" (單位: 股, 1000股=張)
+  // 這裡我們加總「股數」，顯示時若需要再除以 1000 顯示張，或直接顯示股數。
+  // 依照需求 A1 截圖文字 "15,000" 應為股數。
+  const totalPortfolioShares = portfolio.reduce((sum, item) => sum + item.transactions.reduce((t, tx) => t + tx.shares, 0), 0);
 
   const analysisData = useMemo(() => {
     const valueProfitLossList: any[] = [];   // A
-    const accumulatedDividendList: any[] = []; // B
+    const accumulatedDividendList: any[] = []; // B-b (Detail)
     const estimatedDividendList: any[] = []; // C
     const assetGrowthList: any[] = [];       // D
     
+    // B-a (Annual Stats)
+    const annualDividendStats: Record<number, number> = {};
+
     // Charts Data
     const monthlyEstDividends = Array(12).fill(0);
     
@@ -225,8 +228,15 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
             const txDateVal = parseDateSimple(tx.date);
             dividends.forEach(d => {
                 const dDateVal = parseDateSimple(d.date);
+                // 只有配息日 >= 買入日 才算領到
                 if (dDateVal >= txDateVal) {
-                    itemAccumulatedDividend += (d.amount * tx.shares);
+                    const amount = d.amount * tx.shares;
+                    itemAccumulatedDividend += amount;
+                    
+                    // 統計年度 (B-a)
+                    const year = new Date(dDateVal).getFullYear();
+                    if (!annualDividendStats[year]) annualDividendStats[year] = 0;
+                    annualDividendStats[year] += amount;
                 }
             });
         });
@@ -277,6 +287,11 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
         });
     });
 
+    // Sort B-a Annual Stats
+    const sortedAnnualStats = Object.entries(annualDividendStats)
+        .map(([year, income]) => ({ year: parseInt(year), income }))
+        .sort((a, b) => b.year - a.year); // 降序
+
     // Chart D Data Generation
     const portfolioAvgReturnRate = totalPortfolioCost > 0 ? (weightedReturnRateSum / totalPortfolioCost) : 0;
     
@@ -302,6 +317,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
     return {
         valueProfitLossList,
         accumulatedDividendList,
+        sortedAnnualStats, // New
         estimatedDividendList,
         assetGrowthList,
         monthlyEstDividends,
@@ -341,8 +357,8 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
               <div className="flex flex-col items-center">
                   <span className="text-[14px] font-light text-slate-500">投資張數</span>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-[18px] font-bold text-slate-800">{formatMoney(totalPortfolioShares)}</span>
-                    <span className="text-[12px] text-slate-400">張</span>
+                    <span className="text-[18px] font-bold text-slate-800">{formatShare(totalPortfolioShares)}</span>
+                    <span className="text-[12px] text-slate-400">股</span>
                   </div>
               </div>
           </div>
@@ -394,6 +410,10 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                         <span className="text-[18px] font-bold text-slate-800">${formatMoney(totalCost)}</span>
                                     </div>
                                 </div>
+                                {/* Arrow Down Indicator */}
+                                <div className="absolute right-3 bottom-2">
+                                     {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                                </div>
                             </div>
 
                             {/* 子表 (Transactions) */}
@@ -403,6 +423,9 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                     {/* 新增模式 (淡灰色背景) */}
                                     {addingToId === item.id && addForm && (
                                         <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-2 shadow-inner">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <span className="text-[12px] font-bold text-slate-500">新增交易 (預算50萬)</span>
+                                            </div>
                                             {/* Row 1: 日期, 成交總價 */}
                                             <div className="grid grid-cols-2 gap-3 mb-2">
                                                 <div>
@@ -412,6 +435,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                                 <div>
                                                     <label className="text-[12px] text-slate-500 block mb-0.5 text-right font-light">成交總價</label>
                                                     <input type="number" value={addForm.totalAmount} onChange={(e) => handleFormChange('add', 'totalAmount', e.target.value)} className="w-full text-[16px] p-1 border rounded text-right bg-white text-slate-700 font-normal" />
+                                                    <div className="text-[10px] text-slate-400 text-right mt-0.5">${formatMoney(addForm.totalAmount)}</div>
                                                 </div>
                                             </div>
                                             {/* Row 2: 股數, 單價 */}
@@ -419,6 +443,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                                 <div>
                                                     <label className="text-[12px] text-slate-500 block mb-0.5 font-light">股數</label>
                                                     <input type="number" value={addForm.shares} onChange={(e) => handleFormChange('add', 'shares', e.target.value)} className="w-full text-[16px] p-1 border rounded bg-white text-slate-700 font-normal" />
+                                                    <div className="text-[10px] text-slate-400 mt-0.5">{formatShare(addForm.shares)} 股</div>
                                                 </div>
                                                 <div>
                                                     <label className="text-[12px] text-slate-500 block mb-0.5 text-right font-light">單價</label>
@@ -440,14 +465,25 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                             // 編輯模式 (淡紅色背景)
                                             return (
                                                 <div key={tx.id} className="bg-red-50 p-3 rounded-lg border border-red-200 shadow-inner">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="text-[12px] font-bold text-red-500">修改交易</span>
+                                                    </div>
                                                     {/* Row 1: 日期, 成交總價 */}
                                                     <div className="grid grid-cols-2 gap-3 mb-2">
                                                         <div><label className="text-[12px] text-slate-500 block font-light">日期</label><input value={editForm!.date} onChange={(e) => handleFormChange('edit', 'date', e.target.value)} className="w-full text-[16px] border rounded px-1 bg-white text-slate-700 font-normal" /></div>
-                                                        <div><label className="text-[12px] text-slate-500 block text-right font-light">成交總價</label><input type="number" value={editForm!.totalAmount} onChange={(e) => handleFormChange('edit', 'totalAmount', e.target.value)} className="w-full text-[16px] border rounded px-1 text-right bg-white text-slate-700 font-normal" /></div>
+                                                        <div>
+                                                            <label className="text-[12px] text-slate-500 block text-right font-light">成交總價</label>
+                                                            <input type="number" value={editForm!.totalAmount} onChange={(e) => handleFormChange('edit', 'totalAmount', e.target.value)} className="w-full text-[16px] border rounded px-1 text-right bg-white text-slate-700 font-normal" />
+                                                            <div className="text-[10px] text-slate-400 text-right mt-0.5">${formatMoney(editForm!.totalAmount)}</div>
+                                                        </div>
                                                     </div>
                                                     {/* Row 2: 股數, 單價 */}
                                                     <div className="grid grid-cols-2 gap-3 mb-3">
-                                                        <div><label className="text-[12px] text-slate-500 block font-light">股數</label><input type="number" value={editForm!.shares} onChange={(e) => handleFormChange('edit', 'shares', e.target.value)} className="w-full text-[16px] border rounded px-1 bg-white text-slate-700 font-normal" /></div>
+                                                        <div>
+                                                            <label className="text-[12px] text-slate-500 block font-light">股數</label>
+                                                            <input type="number" value={editForm!.shares} onChange={(e) => handleFormChange('edit', 'shares', e.target.value)} className="w-full text-[16px] border rounded px-1 bg-white text-slate-700 font-normal" />
+                                                            <div className="text-[10px] text-slate-400 mt-0.5">{formatShare(editForm!.shares)} 股</div>
+                                                        </div>
                                                         <div><label className="text-[12px] text-slate-500 block text-right font-light">單價</label><input type="number" value={editForm!.price} onChange={(e) => handleFormChange('edit', 'price', e.target.value)} className="w-full text-[16px] border rounded px-1 text-right bg-white text-slate-700 font-normal" /></div>
                                                     </div>
                                                     <div className="flex gap-2">
@@ -461,19 +497,19 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                         // 顯示模式 (Row 1: Thin 16px, Row 2: Thin 16px)
                                         return (
                                             <div key={tx.id} className="border-b border-slate-100 last:border-0 pb-2 mb-2 last:pb-0 last:mb-0">
-                                                {/* Row 1: 日期 / 成交總價 / 刪除 */}
+                                                {/* Row 1: 日期 / 成交總價 / 刪除圖示 */}
                                                 <div className="flex justify-between items-center mb-1">
                                                     <span className="text-[12px] font-light text-slate-500 w-20">日期</span>
                                                     <span className="text-[16px] font-light text-slate-700 flex-1 text-right pr-3 font-mono">{formatDateDisplay(tx.date)}</span>
                                                     <span className="text-[16px] font-light text-slate-700 w-24 text-right">${formatMoney(tx.totalAmount)}</span>
-                                                    <button onClick={() => handleDeleteClick(item.id, tx.id)} className="ml-2 p-1 text-slate-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
+                                                    <button onClick={() => handleDeleteClick(item.id, tx.id)} className="ml-2 p-1 text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>
                                                 </div>
-                                                {/* Row 2: 股數 / 單價 / 修改 */}
+                                                {/* Row 2: 股數 / 單價 / 修改圖示 */}
                                                 <div className="flex justify-between items-center">
                                                     <span className="text-[12px] font-light text-slate-500 w-20">股數</span>
                                                     <span className="text-[16px] font-light text-slate-700 flex-1 text-right pr-3">{formatShare(tx.shares)}</span>
                                                     <span className="text-[16px] font-light text-slate-700 w-24 text-right">@{formatPrice(tx.price)}</span>
-                                                    <button onClick={() => startEdit(tx)} className="ml-2 p-1 text-slate-400 hover:text-blue-500"><Edit3 className="w-4 h-4"/></button>
+                                                    <button onClick={() => startEdit(tx)} className="ml-2 p-1 text-slate-300 hover:text-blue-500"><Edit3 className="w-4 h-4"/></button>
                                                 </div>
                                             </div>
                                         );
@@ -539,29 +575,54 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                          {expandedAnalysis.includes('B') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
                      </div>
                      {expandedAnalysis.includes('B') && (
-                        <div className="px-3 pb-3 border-t border-slate-100 pt-2 space-y-2 animate-[fadeIn_0.2s_ease-out]">
-                            {analysisData.accumulatedDividendList.map((row) => (
-                                <div key={row.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col gap-1">
-                                    <div className="flex justify-between items-center">
-                                        <div className="text-[16px] text-slate-500 font-light">{row.name}</div>
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-[12px] font-light text-slate-400">購買總價</span>
-                                            <span className="text-[16px] text-slate-600 font-light">${formatMoney(row.totalCost)}</span>
-                                        </div>
+                        <div className="px-3 pb-3 border-t border-slate-100 pt-2 space-y-4 animate-[fadeIn_0.2s_ease-out]">
+                            
+                            {/* a. 以年度統計 */}
+                            <div>
+                                <h5 className="text-[12px] font-bold text-slate-500 mb-2 border-l-2 border-amber-400 pl-2">a. 以年度統計</h5>
+                                {analysisData.sortedAnnualStats.length > 0 ? (
+                                    <div className="space-y-1.5">
+                                        {analysisData.sortedAnnualStats.map((stat) => (
+                                            <div key={stat.year} className="bg-amber-50/50 p-2 rounded border border-amber-100 flex justify-between items-center">
+                                                <span className="text-[12px] font-light text-slate-600">年度 {stat.year}</span>
+                                                <span className="text-[16px] font-bold text-slate-800">${formatMoney(stat.income)}</span>
+                                            </div>
+                                        ))}
                                     </div>
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-[12px] font-light text-slate-400">股息利率</span>
-                                            <span className="text-[16px] text-slate-600 font-bold">{formatPercent(row.yield)}%</span>
+                                ) : (
+                                    <div className="text-center text-[12px] text-slate-400 py-2">尚無領息紀錄</div>
+                                )}
+                            </div>
+
+                            {/* b. 各 ETF 明細 */}
+                            <div>
+                                <h5 className="text-[12px] font-bold text-slate-500 mb-2 border-l-2 border-blue-400 pl-2">b. 各 ETF 明細</h5>
+                                <div className="space-y-2">
+                                    {analysisData.accumulatedDividendList.map((row) => (
+                                        <div key={row.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col gap-1">
+                                            <div className="flex justify-between items-center">
+                                                <div className="text-[16px] text-slate-500 font-light">{row.name}</div>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[12px] font-light text-slate-400">購買總價</span>
+                                                    <span className="text-[16px] text-slate-600 font-light">${formatMoney(row.totalCost)}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[12px] font-light text-slate-400">股息利率</span>
+                                                    <span className="text-[16px] text-slate-600 font-bold">{formatPercent(row.yield)}%</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[12px] font-light text-slate-400">股息收入</span>
+                                                    <span className="text-[16px] text-slate-600 font-bold">${formatMoney(row.income)}</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-1">
-                                            <span className="text-[12px] font-light text-slate-400">股息收入</span>
-                                            <span className="text-[16px] text-slate-600 font-bold">${formatMoney(row.income)}</span>
-                                        </div>
-                                    </div>
+                                    ))}
                                 </div>
-                            ))}
-                            <div className="bg-amber-50 p-2 rounded text-[10px] text-slate-500 mt-2">
+                            </div>
+
+                            <div className="bg-amber-50 p-2 rounded text-[10px] text-slate-500">
                                 股息利率 = 股息收入 / 購買總價。以購買日期為起點，累計已發放之股息。
                             </div>
                         </div>
