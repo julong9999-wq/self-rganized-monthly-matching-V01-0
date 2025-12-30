@@ -70,8 +70,11 @@ const SheetConfigView: React.FC<Props> = ({ defaultUrl1, defaultUrl2, onStart, i
               </button>
             </div>
             
-            <div className="text-center">
-                <p className="text-sm text-slate-400 mt-2">
+            <div className="text-center space-y-2 mt-4">
+                <p className="text-base text-red-500 font-bold bg-red-50 py-2 rounded-lg border border-red-100 leading-snug">
+                    請每天執行 "讀取並分析" 按鈕<br/>以便更新 "即時股價"
+                </p>
+                <p className="text-sm text-slate-400">
                     系統將自動解析 CSV 格式
                 </p>
             </div>
