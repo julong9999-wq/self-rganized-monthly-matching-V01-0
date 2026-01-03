@@ -324,10 +324,14 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
     const estimatedDividendList: any[] = [];
     const assetGrowthList: any[] = [];
     
+    // 取得今日時間 (不含時分秒) 用於判斷除息是否已發生
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    const todayTime = todayDate.getTime();
+    
     // E. 本月除息試算變數
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth(); // 0-indexed
+    const currentYear = todayDate.getFullYear();
+    const currentMonth = todayDate.getMonth(); // 0-indexed
     const currentMonthDividendsList: any[] = [];
     let totalCurrentMonthIncome = 0;
 
@@ -362,7 +366,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
             profitLossRate: itemProfitLossRate
         });
 
-        // 檢查本月除息
+        // E. 檢查本月除息
         if (totalShares > 0) {
             const monthlyDivs = item.etf.dividends.filter(d => {
                 const dVal = parseDateSimple(d.date);
@@ -386,6 +390,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
             });
         }
 
+        // B. 股息收益累積 (修正：需判斷除息日是否 <= 今天)
         let itemAccumulatedDividend = 0;
         const dividends = item.etf.dividends || [];
         
@@ -393,7 +398,10 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
             const txDateVal = parseDateSimple(tx.date);
             dividends.forEach(d => {
                 const dDateVal = parseDateSimple(d.date);
-                if (dDateVal >= txDateVal) {
+                // 邏輯修正：
+                // 1. 除息日 (d.date) 必須在買入日 (tx.date) 之後或當天。
+                // 2. 除息日 (d.date) 必須已經發生 (<= 今天)，排除未來的除息。
+                if (dDateVal >= txDateVal && dDateVal <= todayTime) {
                     const amount = d.amount * tx.shares;
                     itemAccumulatedDividend += amount;
                     const year = new Date(dDateVal).getFullYear();
@@ -925,7 +933,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                         {analysisData.sortedAnnualStats.map((stat) => (
                                             <div key={stat.year} className="bg-amber-50/50 p-2 rounded border border-amber-100 flex justify-between items-center">
                                                 <span className="text-[12px] font-light text-slate-600">年度 {stat.year}</span>
-                                                <span className="text-[16px] font-bold text-slate-800">${formatMoney(stat.income)}</span>
+                                                <span className="text-[16px] font-bold text-slate-500">${formatMoney(stat.income)}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -943,14 +951,14 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                             {/* Row 1: Name & Income */}
                                             <div className="flex justify-between items-center">
                                                 <div className="text-[16px] text-slate-500 font-light">{row.name}</div>
-                                                <div className="text-[16px] text-slate-600 font-bold">${formatMoney(row.income)}</div>
+                                                <div className="text-[16px] text-slate-500 font-bold">${formatMoney(row.income)}</div>
                                             </div>
                                             {/* Row 2: Cost & Yield (Gray) */}
                                             <div className="flex justify-between items-center mt-1 border-t border-slate-200/50 pt-1">
-                                                <div className="text-[12px] text-slate-400 font-light">
+                                                <div className="text-[12px] text-slate-500 font-light">
                                                     成本 ${formatMoney(row.totalCost)}
                                                 </div>
-                                                <div className="text-[12px] text-slate-400 font-light">
+                                                <div className="text-[12px] text-slate-500 font-light">
                                                     殖利率 {formatPercent(row.yield)}%
                                                 </div>
                                             </div>
