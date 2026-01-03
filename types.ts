@@ -30,6 +30,7 @@ export interface Dividend {
   date: string;
   amount: number;
   period: string; // Q1, Q2, M1, M2...
+  paymentDate?: string; // 新增：股利發放日
 }
 
 // 新增交易紀錄介面

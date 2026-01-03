@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { PortfolioItem, Transaction, EtfData } from '../types';
-import { Trash2, ChevronDown, ChevronUp, Edit3, Plus, BarChart3, Wallet, Minus, Coins, Calculator, LineChart, CircleAlert, ArrowLeft, X } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronUp, Edit3, Plus, BarChart3, Wallet, Minus, Coins, Calculator, LineChart, CircleAlert, ArrowLeft, X, CalendarCheck } from 'lucide-react';
 
 interface Props {
   portfolio: PortfolioItem[];
@@ -324,6 +324,13 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
     const estimatedDividendList: any[] = [];
     const assetGrowthList: any[] = [];
     
+    // E. 本月除息試算變數
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth(); // 0-indexed
+    const currentMonthDividendsList: any[] = [];
+    let totalCurrentMonthIncome = 0;
+
     const annualDividendStats: Record<number, number> = {};
     const monthlyEstDividends = Array(12).fill(0);
     
@@ -354,6 +361,30 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
             profitLoss: itemProfitLoss,
             profitLossRate: itemProfitLossRate
         });
+
+        // 檢查本月除息
+        if (totalShares > 0) {
+            const monthlyDivs = item.etf.dividends.filter(d => {
+                const dVal = parseDateSimple(d.date);
+                if (dVal === 0) return false;
+                const dDate = new Date(dVal);
+                return dDate.getFullYear() === currentYear && dDate.getMonth() === currentMonth;
+            });
+
+            monthlyDivs.forEach(d => {
+                const income = totalShares * d.amount;
+                totalCurrentMonthIncome += income;
+                currentMonthDividendsList.push({
+                    id: item.id,
+                    name: item.etf.name,
+                    shares: totalShares,
+                    unitAmount: d.amount,
+                    totalAmount: income,
+                    date: d.date,
+                    paymentDate: d.paymentDate
+                });
+            });
+        }
 
         let itemAccumulatedDividend = 0;
         const dividends = item.etf.dividends || [];
@@ -443,6 +474,9 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
     const minY = Math.min(...allChartValues) * 0.98;
     const maxDivBar = Math.max(...monthlyEstDividends);
 
+    // Sort currentMonthDividendsList by date
+    currentMonthDividendsList.sort((a,b) => parseDateSimple(a.date) - parseDateSimple(b.date));
+
     return {
         valueProfitLossList,
         accumulatedDividendList,
@@ -450,6 +484,8 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
         estimatedDividendList,
         assetGrowthList,
         monthlyEstDividends,
+        currentMonthDividendsList,
+        totalCurrentMonthIncome,
         growthCurveNoDiv,
         growthCurveWithDiv,
         maxDivBar,
@@ -596,7 +632,7 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                 <th className="py-3 px-3 text-left font-medium">配息日期</th>
                                 <th className="py-3 px-3 text-right font-medium">配息金額</th>
                                 <th className="py-3 px-3 text-right font-medium">單次殖利率</th>
-                                <th className="py-3 px-3 text-right font-medium">狀態</th>
+                                <th className="py-3 px-3 text-right font-medium">股利發放</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -605,12 +641,18 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                     const isFuture = isFutureDate(div.date);
                                     const yieldVal = selectedEtf.priceCurrent > 0 ? ((div.amount / selectedEtf.priceCurrent) * 100).toFixed(2) : "0.00";
                                     return (
-                                        <tr key={idx} className={`border-b border-slate-100/50 ${isFuture ? 'bg-red-100' : ''}`}>
+                                        <tr key={idx} className={`border-b border-slate-100/50 ${isFuture ? 'bg-red-50' : ''}`}>
                                             <td className="py-3 px-3 text-slate-800 font-medium text-sm">{div.date}</td>
                                             <td className="py-3 px-3 text-right text-slate-800 font-bold text-sm">{div.amount}</td>
                                             <td className="py-3 px-3 text-right text-blue-600 font-medium text-sm">{yieldVal}%</td>
                                             <td className="py-3 px-3 text-right text-xs">
-                                                {isFuture ? <span className="text-red-600 font-bold">預估</span> : <span className="text-slate-400">已除息</span>}
+                                                {div.paymentDate ? (
+                                                    <span className={`font-medium ${isFuture ? 'text-red-600' : 'text-slate-600'}`}>
+                                                        {div.paymentDate}
+                                                    </span>
+                                                ) : (
+                                                    isFuture ? <span className="text-red-600 font-bold">預估</span> : <span className="text-slate-400">-</span>
+                                                )}
                                             </td>
                                         </tr>
                                     );
@@ -1037,6 +1079,61 @@ const PortfolioView: React.FC<Props> = ({ portfolio, onUpdateTransaction, onDele
                                     </svg>
                                 </div>
                             </div>
+                        </div>
+                     )}
+                </div>
+
+                {/* A3-E. 本月除息試算 */}
+                <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                     <div onClick={() => toggleAnalysis('E')} className="p-3 flex items-center justify-between cursor-pointer bg-white hover:bg-slate-50">
+                         <div className="flex items-center gap-2 flex-1 justify-between pr-2">
+                             <div className="flex items-center gap-2">
+                                 <div className="p-1 bg-violet-100 rounded"><CalendarCheck className="w-4 h-4 text-violet-600" /></div>
+                                 <h4 className="font-bold text-[18px] text-slate-800">E. 本月除息試算</h4>
+                             </div>
+                             <span className={`text-[16px] font-bold text-violet-600`}>
+                                 ${formatMoney(analysisData.totalCurrentMonthIncome)}
+                             </span>
+                         </div>
+                         {expandedAnalysis.includes('E') ? <Minus className="w-4 h-4 text-slate-400"/> : <Plus className="w-4 h-4 text-slate-400"/>}
+                     </div>
+                     {expandedAnalysis.includes('E') && (
+                        <div className="px-3 pb-3 border-t border-slate-100 pt-2 space-y-2 animate-[fadeIn_0.2s_ease-out]">
+                            <div className="text-center text-[12px] text-slate-400 mb-1">
+                                {new Date().getFullYear()}年 {new Date().getMonth() + 1}月 除息清單
+                            </div>
+                            {analysisData.currentMonthDividendsList.length > 0 ? (
+                                analysisData.currentMonthDividendsList.map((row, idx) => (
+                                <div key={`${row.id}-${idx}`} className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex flex-col gap-1">
+                                    {/* Row 1: ETF名稱, 購買股數 (細字) */}
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex flex-col">
+                                             <span className="text-[12px] font-light text-slate-500">ETF名稱</span>
+                                             <span className="text-[16px] font-light text-slate-600">{row.name} <span className="text-xs">({row.id})</span></span>
+                                        </div>
+                                        <div className="flex flex-col text-right">
+                                             <span className="text-[12px] font-light text-slate-500">購買股數</span>
+                                             <span className="text-[16px] font-light text-slate-600">{formatShare(row.shares)}</span>
+                                        </div>
+                                    </div>
+                                    {/* Row 2: 除息金額, 股息金額 (粗字) */}
+                                    <div className="flex justify-between items-center border-t border-slate-200/50 pt-1 mt-0.5">
+                                        <div className="flex flex-col">
+                                             <span className="text-[12px] font-light text-slate-500">除息金額</span>
+                                             <div className="flex items-baseline gap-1">
+                                                <span className="text-[16px] font-bold text-slate-800">{row.unitAmount}</span>
+                                                <span className="text-[10px] text-slate-400">({row.date})</span>
+                                             </div>
+                                        </div>
+                                        <div className="flex flex-col text-right">
+                                             <span className="text-[12px] font-light text-slate-500">股息金額</span>
+                                             <span className="text-[16px] font-bold text-slate-800">${formatMoney(row.totalAmount)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))) : (
+                                <div className="text-center text-slate-400 py-4 text-sm">本月無除息資料</div>
+                            )}
                         </div>
                      )}
                 </div>

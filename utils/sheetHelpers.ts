@@ -139,8 +139,11 @@ export const parseDividendData = (csvContent: string): Record<string, Dividend[]
   const findCol = (keywords: string[]) => header.findIndex(h => keywords.some(k => h.includes(k)));
 
   const idxCode = findCol(['etf 代碼', '股號', '代號', 'code', '股票代號', 'symbol', '代碼']);
-  const idxDate = findCol(['除息日期', '除息日', 'date', '配息日', '日期', '除息交易日', '發放日', '除息']);
+  // 移除 '發放日' 以避免混淆，專注於除息相關關鍵字
+  const idxDate = findCol(['除息日期', '除息日', 'date', '配息日', '日期', '除息交易日', '除息']);
   const idxAmount = findCol(['除息金額', '配息', '金額', 'amount', '現金股利', '分配金額', '現金', '股利', 'distribution']);
+  // 明確指定發放日關鍵字
+  const idxPayDate = findCol(['發放日', '現金股利發放日', '入帳日', '領息日', 'payment', 'pay', '發放']);
 
   if (idxCode === -1 || idxAmount === -1) {
       console.warn("Parse Dividend Failed: Missing required columns (Code or Amount). Header:", header);
@@ -161,6 +164,12 @@ export const parseDividendData = (csvContent: string): Record<string, Dividend[]
           
           if (date) date = date.replace(/['"]/g, '').trim();
 
+          // 解析發放日
+          let paymentDate = '';
+          if (idxPayDate !== -1 && row[idxPayDate]) {
+              paymentDate = row[idxPayDate].replace(/['"]/g, '').trim();
+          }
+
           if (amount > 0) {
               if (!dividendMap[code]) {
                   dividendMap[code] = [];
@@ -168,7 +177,8 @@ export const parseDividendData = (csvContent: string): Record<string, Dividend[]
               dividendMap[code].push({
                   date: date,
                   amount: amount,
-                  period: '' 
+                  period: '',
+                  paymentDate: paymentDate 
               });
           }
       }

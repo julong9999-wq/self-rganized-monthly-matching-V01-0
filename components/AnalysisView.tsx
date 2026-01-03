@@ -118,7 +118,7 @@ const getCardStyle = (etf: EtfData) => {
         case 'AD': return 'bg-amber-50 border-amber-200';
         default: return 'bg-white border-slate-200';
     }
-};
+  };
 
 const AnalysisView: React.FC<Props> = ({ etfs, lastUpdated }) => {
   const [activeFilter, setActiveFilter] = useState('高息');
@@ -340,7 +340,7 @@ const AnalysisView: React.FC<Props> = ({ etfs, lastUpdated }) => {
                                 <th className="py-3 px-3 text-left font-medium">配息日期</th>
                                 <th className="py-3 px-3 text-right font-medium">配息金額</th>
                                 <th className="py-3 px-3 text-right font-medium">單次殖利率</th>
-                                <th className="py-3 px-3 text-right font-medium">狀態</th>
+                                <th className="py-3 px-3 text-right font-medium">股利發放</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -352,12 +352,18 @@ const AnalysisView: React.FC<Props> = ({ etfs, lastUpdated }) => {
                                         : "0.00";
 
                                     return (
-                                        <tr key={idx} className={`border-b border-slate-100/50 ${isFuture ? 'bg-red-100' : ''}`}>
+                                        <tr key={idx} className={`border-b border-slate-100/50 ${isFuture ? 'bg-red-50' : ''}`}>
                                             <td className="py-3 px-3 text-slate-800 font-medium text-sm">{div.date}</td>
                                             <td className="py-3 px-3 text-right text-slate-800 font-bold text-sm">{div.amount}</td>
                                             <td className="py-3 px-3 text-right text-blue-600 font-medium text-sm">{yieldVal}%</td>
                                             <td className="py-3 px-3 text-right text-xs">
-                                                {isFuture ? <span className="text-red-600 font-bold">預估</span> : <span className="text-slate-400">已除息</span>}
+                                                {div.paymentDate ? (
+                                                    <span className={`font-medium ${isFuture ? 'text-red-600' : 'text-slate-600'}`}>
+                                                        {div.paymentDate}
+                                                    </span>
+                                                ) : (
+                                                    isFuture ? <span className="text-red-600 font-bold">預估</span> : <span className="text-slate-400">-</span>
+                                                )}
                                             </td>
                                         </tr>
                                     );

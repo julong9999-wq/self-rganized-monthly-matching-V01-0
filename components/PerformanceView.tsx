@@ -172,7 +172,7 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
                                 <th className="py-2 px-2 text-left font-medium">配息日期</th>
                                 <th className="py-2 px-2 text-right font-medium">配息金額</th>
                                 <th className="py-2 px-2 text-right font-medium">單次殖利率</th>
-                                <th className="py-2 px-2 text-right font-medium">狀態</th>
+                                <th className="py-2 px-2 text-right font-medium">股利發放</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -192,7 +192,13 @@ const PerformanceView: React.FC<Props> = ({ etfs, onAddToPortfolio, lastUpdated 
                                             <td className="py-3 px-2 text-right text-slate-800 font-bold text-sm">{div.amount}</td>
                                             <td className="py-3 px-2 text-right text-blue-600 font-medium text-sm">{singleYield}%</td>
                                             <td className="py-3 px-2 text-right text-xs">
-                                                {isFuture ? <span className="text-red-500 font-bold">預估</span> : <span className="text-slate-400">已除息</span>}
+                                                {div.paymentDate ? (
+                                                    <span className={`font-medium ${isFuture ? 'text-red-600' : 'text-slate-600'}`}>
+                                                        {div.paymentDate}
+                                                    </span>
+                                                ) : (
+                                                    isFuture ? <span className="text-red-500 font-bold">預估</span> : <span className="text-slate-400">-</span>
+                                                )}
                                             </td>
                                         </tr>
                                     );
